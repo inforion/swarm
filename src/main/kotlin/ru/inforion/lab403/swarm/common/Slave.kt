@@ -1,9 +1,14 @@
 package ru.inforion.lab403.swarm.common
 
+import ru.inforion.lab403.common.logging.logger
 import ru.inforion.lab403.swarm.abstracts.ARealm
 import ru.inforion.lab403.swarm.interfaces.ITask
 
 class Slave(private val realm: ARealm, var working: Boolean = true, var context: Any? = null) {
+    companion object {
+        @Transient val log = logger()
+    }
+
     fun barrier() = realm.barrier()
 
     val rank get() = realm.rank()
@@ -16,5 +21,6 @@ class Slave(private val realm: ARealm, var working: Boolean = true, var context:
             require(parcel.obj is ITask)
             parcel.obj.execute(this)
         }
+        log.finest { "Stopping slave $rank" }
     }
 }

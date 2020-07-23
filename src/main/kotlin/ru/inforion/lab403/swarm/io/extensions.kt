@@ -10,13 +10,13 @@ fun <T: Serializable> T.calcObjectSize(): Int {
 }
 
 fun <T: Serializable> T.serialize(output: OutputStream) {
-    ObjectOutputStream(output).apply { writeUnshared(this) }
+    ObjectOutputStream(output).apply { writeUnshared(this@serialize) }
 }
 
 fun <T: Serializable> T.serialize(directed: Boolean): ByteBuffer {
     val size = calcObjectSize()
     val output = MemoryOutputStream(size, directed)
-    ObjectOutputStream(output).apply { writeUnshared(this) }
+    ObjectOutputStream(output).apply { writeUnshared(this@serialize) }
     return output.buffer
 }
 

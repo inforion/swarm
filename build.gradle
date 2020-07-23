@@ -29,6 +29,13 @@ dependencies {
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8"
     implementation("com.github.inforion:kotlin-extensions:+")
     implementation("com.github.inforion:kotlin-logging:+")
+
+    implementation files("lib/mpi.jar")
+}
+
+task sourcesJar(type: Jar, dependsOn: classes) {
+    classifier = 'sources'
+    from sourceSets.main.allSource
 }
 
 compileKotlin {
