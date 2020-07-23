@@ -1,6 +1,7 @@
-package ru.inforion.lab403.swarm
+package ru.inforion.lab403.swarm.implementations
 
 import ru.inforion.lab403.common.logging.logger
+import ru.inforion.lab403.swarm.Swarm
 import ru.inforion.lab403.swarm.abstracts.ARealm
 import ru.inforion.lab403.swarm.common.Parcel
 import ru.inforion.lab403.swarm.io.deserialize
@@ -9,6 +10,7 @@ import java.io.Serializable
 import java.util.ArrayList
 import java.util.concurrent.CyclicBarrier
 import java.util.concurrent.LinkedBlockingQueue
+import kotlin.concurrent.thread
 import kotlin.system.exitProcess
 
 class Threads(val size: Int) : ARealm() {
@@ -17,35 +19,29 @@ class Threads(val size: Int) : ARealm() {
         @Transient val log = logger()
     }
 
-    class Worker(val block: () -> Unit) : Thread() {
-        val incoming = LinkedBlockingQueue<Pair<Int, ByteArray>>()
+    private val incoming = Array(size + 1) { LinkedBlockingQueue<Pair<Int, ByteArray>>() }
 
-        init {
-            start()
-        }
+    private val barrier = CyclicBarrier(size + 1)
 
-        override fun run() {
-            block()
-        }
-    }
+    private val threads = ArrayList<Thread>()
 
     override fun asyncRequestCount(): Int = 0
 
     override fun send(obj: Serializable, dst: Int, blocked: Boolean) {
         val buffer = obj.serialize(directed = false)
-        threads[dst].incoming.put(Pair(rank(), buffer.array()))
+        incoming[dst].put(Pair(rank(), buffer.array()))
     }
 
     override fun recv(src: Int): Parcel {
         if (src != -1) {
             while (true) {
-                val info = threads[rank()].incoming.take()
+                val info = incoming[rank()].take()
                 if (info.first == src)
                     return Parcel(info.first, info.second.deserialize())
-                threads[rank()].incoming.put(info)
+                incoming[rank()].put(info)
             }
         } else {
-            val info = threads[rank()].incoming.take()
+            val info = incoming[rank()].take()
             return Parcel(info.first, info.second.deserialize())
         }
     }
@@ -53,19 +49,15 @@ class Threads(val size: Int) : ARealm() {
     override fun rank(): Int = threads.indexOf(Thread.currentThread())
     override fun total(): Int = threads.size
 
-    private val barrier = CyclicBarrier(size)
-
     override fun barrier() {
         barrier.await()
     }
 
-    private val threads = ArrayList<Worker>()
-
     override fun run(swarm: Swarm) {
-        threads.add(Worker { swarm.master() })
+        threads.add(Thread.currentThread())
 
-        for (k in 2..size) {
-            threads.add(Worker {
+        repeat(size) {
+            threads.add(thread {
                 try {
                     swarm.slave()
                 } catch (exc: InterruptedException) {
@@ -78,6 +70,6 @@ class Threads(val size: Int) : ARealm() {
             })
         }
 
-        threads.forEach { it.join() }
+        swarm.master()
     }
 }

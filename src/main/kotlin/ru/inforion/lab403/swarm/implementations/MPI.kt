@@ -1,8 +1,9 @@
-package ru.inforion.lab403.swarm
+package ru.inforion.lab403.swarm.implementations
 
 import mpi.MPI
 import mpi.Request
 import ru.inforion.lab403.common.logging.logger
+import ru.inforion.lab403.swarm.Swarm
 import ru.inforion.lab403.swarm.abstracts.ARealm
 import ru.inforion.lab403.swarm.common.Parcel
 import ru.inforion.lab403.swarm.io.deserialize
