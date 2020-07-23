@@ -4,7 +4,9 @@ import ru.inforion.lab403.swarm.implementations.MPI
 import ru.inforion.lab403.swarm.implementations.Threads
 import java.lang.IllegalArgumentException
 
-fun <T> Collection<T>.parallelize(swarm: Swarm) = swarm.parallelize(this)
+fun <T> Iterable<T>.parallelize(swarm: Swarm) = swarm.parallelize(this)
+
+fun <T> Array<T>.parallelize(swarm: Swarm) = swarm.parallelize(this.asIterable())
 
 fun threadsSwarm(size: Int, code: (Swarm) -> Unit) {
     Swarm(Threads(size), code)

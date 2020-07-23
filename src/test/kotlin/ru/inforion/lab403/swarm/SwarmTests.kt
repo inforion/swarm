@@ -69,4 +69,14 @@ class SwarmTests {
         val result = swarm.context { "context-$it" }.get { context: String -> context }
         assertEquals(listOf("context-1", "context-2", "context-3", "context-4"), result)
     }
+
+    @Test
+    fun notifyReceiveTest() = threadsSwarm(size) { swarm ->
+        val no1 = swarm.addReceiveNotifier { println("1-$it") }
+        val no2 = swarm.addReceiveNotifier { println("2-$it") }
+        swarm.removeReceiveNotifier(no1)
+        swarm.removeReceiveNotifier { println("2-$it") }
+        val result = Array(100) { it }.parallelize(swarm).map { it.toString() }
+        assertEquals(Array(100) { it.toString() }.toList(), result)
+    }
 }

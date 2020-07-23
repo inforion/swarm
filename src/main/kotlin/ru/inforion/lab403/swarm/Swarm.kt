@@ -13,7 +13,9 @@ class Swarm(private val realm: ARealm, val code: (Swarm) -> Unit) {
 
     val size get() = realm.total()
 
-    fun <T> parallelize(collection: Collection<T>) = Parallel(this, collection)
+    private val receiveNotifiers = mutableSetOf<ReceiveNotifier>()
+
+    fun <T> parallelize(iterable: Iterable<T>) = Parallel(this, iterable)
 
     fun <T> context(context: (Int) -> T) = forEach { it.context = context(it.rank) }
 
@@ -26,11 +28,11 @@ class Swarm(private val realm: ARealm, val code: (Swarm) -> Unit) {
             val result = block(it.context as C)
             it.response(result, it.rank)
         }
-        return receivedOrdered(size - 1, -1)
+        return receiveOrdered(size - 1, -1)
     }
 
-    fun <C, T, R>mapContext(collection: Collection<T>, block: (C, T) -> R): Collection<R> {
-        val tasks = collection.mapIndexed { index, value ->
+    fun <C, T, R>mapContext(iterable: Iterable<T>, block: (C, T) -> R): Collection<R> {
+        val tasks = iterable.mapIndexed { index, value ->
             object : ITask {
                 override fun execute(slave: Slave) {
                     val result = block(slave.context as C, value)
@@ -39,11 +41,11 @@ class Swarm(private val realm: ARealm, val code: (Swarm) -> Unit) {
             }
         }
         realm.sendToAllEvenly(tasks, true)
-        return receivedOrdered(collection.size, 0)
+        return receiveOrdered(tasks.size, 0)
     }
 
-    fun <T, R>map(collection: Collection<T>, block: (T) -> R): Collection<R> {
-        val tasks = collection.mapIndexed { index, value ->
+    fun <T, R>map(iterable: Iterable<T>, block: (T) -> R): Collection<R> {
+        val tasks = iterable.mapIndexed { index, value ->
             object : ITask {
                 override fun execute(slave: Slave) {
                     val result = block(value)
@@ -52,10 +54,14 @@ class Swarm(private val realm: ARealm, val code: (Swarm) -> Unit) {
             }
         }
         realm.sendToAllEvenly(tasks, true)
-        return receivedOrdered(collection.size, 0)
+        return receiveOrdered(tasks.size, 0)
     }
 
-    private fun <R>receivedOrdered(size: Int, offset: Int): List<R> {
+    fun addReceiveNotifier(notifier: ReceiveNotifier) = notifier.also { receiveNotifiers.add(it) }
+
+    fun removeReceiveNotifier(notifier: ReceiveNotifier) = receiveNotifiers.remove(notifier)
+
+    private fun <R>receiveOrdered(size: Int, offset: Int): List<R> {
         val result = ArrayList<R?>(size)
 
         repeat(size) { result.add(null) }
@@ -66,6 +72,7 @@ class Swarm(private val realm: ARealm, val code: (Swarm) -> Unit) {
             @Suppress("UNCHECKED_CAST")
             val response = parcel.obj as Response<R>
             result[response.index + offset] = response.obj
+            receiveNotifiers.forEach { it.invoke(parcel.sender) }
             ++count != size
         }
 
