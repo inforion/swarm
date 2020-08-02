@@ -8,17 +8,17 @@ fun <T> Collection<T>.parallelize(swarm: Swarm) = swarm.parallelize(this)
 
 fun <T> Array<T>.parallelize(swarm: Swarm) = swarm.parallelize(this.asList())
 
-fun threadsSwarm(size: Int, code: (Swarm) -> Unit) {
-    Swarm(Threads(size), code)
+fun threadsSwarm(size: Int, compress: Boolean = false, code: (Swarm) -> Unit) {
+    Swarm(Threads(size, compress), code)
 }
 
-fun mpiSwarm(vararg args: String, code: (Swarm) -> Unit) {
-    Swarm(MPI(*args), code)
+fun mpiSwarm(vararg args: String, compress: Boolean = false, code: (Swarm) -> Unit) {
+    Swarm(MPI(*args, compress = compress), code)
 }
 
-fun swarm(name: String, vararg args: Any, code: (Swarm) -> Unit) = when(name) {
-    "THREAD" -> threadsSwarm(args[0] as Int, code)
-    "MPI" -> mpiSwarm(*args as Array<out String>, code = code)
+fun swarm(name: String, compress: Boolean, vararg args: Any, code: (Swarm) -> Unit) = when(name) {
+    "THREAD" -> threadsSwarm(args[0] as Int, compress, code)
+    "MPI" -> mpiSwarm(*args as Array<out String>, compress = compress, code = code)
     else -> throw IllegalArgumentException("Unknown realm '$name' for Swarm!")
 }
 

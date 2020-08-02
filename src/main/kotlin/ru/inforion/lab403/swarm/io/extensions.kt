@@ -36,9 +36,8 @@ private fun InputStream.gzip(enabled: Boolean) = if (enabled) GZIPInputStream(th
  *   метода [GZIPOutputStream.finish], который может быть вызван в методе [OutputStream.close]
  * {RU}
  */
-private fun <T: Serializable> T.serialize(output: OutputStream, compress: Boolean) {
-    output.gzip(compress).use { ObjectOutputStream(output).writeUnshared(this@serialize) }
-}
+private fun <T: Serializable> T.serialize(output: OutputStream, compress: Boolean) =
+    output.gzip(compress).use { ObjectOutputStream(it).writeUnshared(this) }
 
 /**
  * {RU}

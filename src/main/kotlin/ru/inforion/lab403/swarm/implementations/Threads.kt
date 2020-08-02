@@ -2,18 +2,19 @@ package ru.inforion.lab403.swarm.implementations
 
 import ru.inforion.lab403.common.logging.logger
 import ru.inforion.lab403.swarm.Swarm
-import ru.inforion.lab403.swarm.abstracts.ARealm
-import ru.inforion.lab403.swarm.common.Parcel
+import ru.inforion.lab403.swarm.abstracts.IRealm
+import ru.inforion.lab403.swarm.common.Mail
 import ru.inforion.lab403.swarm.io.deserialize
 import ru.inforion.lab403.swarm.io.serialize
 import java.io.Serializable
+import java.nio.ByteBuffer
 import java.util.ArrayList
 import java.util.concurrent.CyclicBarrier
 import java.util.concurrent.LinkedBlockingQueue
 import kotlin.concurrent.thread
 import kotlin.system.exitProcess
 
-class Threads(val size: Int) : ARealm() {
+class Threads(val size: Int, val compress: Boolean) : IRealm {
 
     companion object {
         @Transient val log = logger()
@@ -27,26 +28,23 @@ class Threads(val size: Int) : ARealm() {
         }
     }
 
-    private class QueueEntry(val sender: Int, val data: ByteArray)
-
-    private val incoming = Array(size + 1) { LinkedBlockingQueue<QueueEntry>() }
+    private val incoming = Array(size + 1) { LinkedBlockingQueue<Pair<Int, ByteArray>>() }
 
     private val barrier = CyclicBarrier(size + 1)
 
     private val threads = ArrayList<Thread>()
 
-    override fun asyncRequestCount(): Int = 0
+    override fun pack(obj: Serializable) = obj.serialize(false, compress)
 
-    override fun send(obj: Serializable, dst: Int, blocked: Boolean) {
-        log.config { "[${rank}] obj=$obj dst=$dst block=$blocked" }
-        val buffer = obj.serialize(directed = false, compress = true)
-        incoming[dst].put(QueueEntry(rank, buffer.array()))
+    override fun send(buffer: ByteBuffer, dst: Int, blocked: Boolean) {
+//        log.config { "[${rank}] obj=$buffer dst=$dst block=$blocked size = ${buffer.limit()}" }
+        incoming[dst].put(rank to buffer.array())
     }
 
-    override fun recv(src: Int): Parcel {
+    override fun recv(src: Int): Mail {
         val queue = incoming[rank]
-        val entry = if (src != -1) queue.take { it.sender == src } else queue.take()
-        return Parcel(entry.sender, entry.data.deserialize(compress = true))
+        val (sender, data) = if (src != -1) queue.take { it.first == src } else queue.take()
+        return Mail(sender, data.deserialize(compress))
     }
 
     override val rank get() = threads.indexOf(Thread.currentThread())

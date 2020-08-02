@@ -1,12 +1,16 @@
 package ru.inforion.lab403.swarm
 
 import ru.inforion.lab403.common.logging.logger
-import ru.inforion.lab403.swarm.abstracts.ARealm
+import ru.inforion.lab403.swarm.abstracts.IRealm
 import ru.inforion.lab403.swarm.common.Slave
 import ru.inforion.lab403.swarm.common.Response
+import ru.inforion.lab403.swarm.implementations.recvFromOthers
+import ru.inforion.lab403.swarm.implementations.recvFromOthersUntil
+import ru.inforion.lab403.swarm.implementations.sendToAllEvenly
+import ru.inforion.lab403.swarm.implementations.sendToOthers
 import ru.inforion.lab403.swarm.interfaces.ITask
 
-class Swarm(private val realm: ARealm, val code: (Swarm) -> Unit) {
+class Swarm(private val realm: IRealm, val code: (Swarm) -> Unit) {
     companion object {
         @Transient val log = logger()
     }
@@ -25,6 +29,7 @@ class Swarm(private val realm: ARealm, val code: (Swarm) -> Unit) {
 
     fun <C, R> get(block: (context: C) -> R): List<R> {
         forEach(false) {
+            @Suppress("UNCHECKED_CAST")
             val result = block(it.context as C)
             it.response(result, it.rank)
         }
@@ -35,6 +40,7 @@ class Swarm(private val realm: ARealm, val code: (Swarm) -> Unit) {
         val tasks = collection.mapIndexed { index, value ->
             object : ITask {
                 override fun execute(slave: Slave) {
+                    @Suppress("UNCHECKED_CAST")
                     val result = block(slave.context as C, value)
                     slave.response(result, index)
                 }
@@ -68,11 +74,11 @@ class Swarm(private val realm: ARealm, val code: (Swarm) -> Unit) {
 
         var count = 0
 
-        realm.recvFromAnyUntil { parcel ->
+        realm.recvFromOthersUntil { mail ->
             @Suppress("UNCHECKED_CAST")
-            val response = parcel.obj as Response<R>
+            val response = mail.obj as Response<R>
             result[response.index + offset] = response.obj
-            receiveNotifiers.forEach { it.invoke(parcel.sender) }
+            receiveNotifiers.forEach { it.invoke(mail.sender) }
             ++count != size
         }
 
@@ -87,7 +93,7 @@ class Swarm(private val realm: ARealm, val code: (Swarm) -> Unit) {
                 if (sync) slave.barrier()
             }
         }
-        realm.sendToAllExceptMe(task)
+        realm.sendToOthers(task)
         if (sync) realm.barrier()
         return this
     }

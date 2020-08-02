@@ -11,8 +11,11 @@ import ru.inforion.lab403.swarm.io.serialize
 import java.io.ByteArrayOutputStream
 import java.io.ObjectInputStream
 import java.io.ObjectOutputStream
+import java.util.logging.Level
+import java.util.logging.Logger
 import java.util.zip.GZIPInputStream
 import java.util.zip.GZIPOutputStream
+import kotlin.system.measureTimeMillis
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
@@ -53,7 +56,7 @@ internal class SwarmTests {
             "test/dd"
         ).parallelize(swarm).mapContext { context: Context, value ->
             context.x += 1
-            log.info(context.toString())
+            log.info { context.toString() }
             value.toUpperCase().split("/")[1].toInt(16)
         }
 
@@ -61,7 +64,7 @@ internal class SwarmTests {
 
         val getResults = swarm.get { context: Context -> context.x }
 
-        log.info(getResults.toString())
+        log.info { getResults.toString() }
 
         assertEquals(getResults.size, size)
         assertTrue { getResults.none { it > 11 } }
@@ -84,10 +87,10 @@ internal class SwarmTests {
 
     @Test
     fun notifyReceiveTest() = threadsSwarm(size) { swarm ->
-        val no1 = swarm.addReceiveNotifier { log.info("1-$it") }
-        val no2 = swarm.addReceiveNotifier { log.info("2-$it") }
+        val no1 = swarm.addReceiveNotifier { log.info { "1-$it" } }
+        val no2 = swarm.addReceiveNotifier { log.info { "2-$it" } }
         swarm.removeReceiveNotifier(no1)
-        swarm.removeReceiveNotifier { log.info("2-$it") }
+        swarm.removeReceiveNotifier { log.info { "2-$it" } }
         val result = Array(100) { it }.parallelize(swarm).map { it.toString() }
         assertEquals(Array(100) { it.toString() }.toList(), result)
     }
@@ -121,49 +124,88 @@ internal class SwarmTests {
 
         val array = baos.toByteArray()
 
-        log.info(array.hexlify())
+        log.info { array.hexlify() }
 
         val bais = array.inputStream()
 
-        log.info("bais.available=${bais.available()}")
+        log.info {"bais.available=${bais.available()}" }
 
         val gis = GZIPInputStream(bais)
         val ois = ObjectInputStream(gis)
 
         val result = ois.readUnshared() as String
 
-        log.config("bais.available=${bais.available()} due to GZIP = 0 but should be 1 (marker)")
+        log.config { "bais.available=${bais.available()} due to GZIP = 0 but should be 1 (marker)" }
 
         assertEquals(string, result)
     }
 
     @Test
     fun serializationGzipStream() {
-        val string = "Some insignificant string"
+        val string = "Some insignificant string-".repeat(1000)
 
         val array = string.serialize(false, true).array()
-        log.info { array.toString() }
+        log.info { array.hexlify() }
         val result = array.deserialize<String>(true)
 
         assertEquals(string, result)
     }
 
-    @Test
-    fun largeZeroHeapObjectTest() {
-        threadsSwarm(size) { swarm ->
-            val mc0 = MemoryConsumption.get()
-            log.info(mc0.toString())
+    private fun largeHeapObjectRun(array: ByteArray) {
+        System.gc()
 
-            val array = ByteArray(0x1000_0000 ushr 2)
-
-            val mc1 = MemoryConsumption.get()
-            log.info(mc1.toString())
-
-            log.severe { "Starting context..." }
+        threadsSwarm(size, true) { swarm ->
+            val start = System.currentTimeMillis()
             swarm.context { array }
-            log.severe { "Finish context..." }
+            val time = System.currentTimeMillis() - start
+            log.info { "Finish context compress, time = $time" }
+
+            swarm.eachContext { context: ByteArray -> context.sum() }
+
+            val mc2 = MemoryConsumption.get()
+            log.info { mc2.toString() }
         }
 
-        log.severe { "WTF?..." }
+        System.gc()
+
+        threadsSwarm(size, false) { swarm ->
+            val start = System.currentTimeMillis()
+            swarm.context { array }
+            val time = System.currentTimeMillis() - start
+            log.info { "Finish context no compress, time = $time" }
+
+            swarm.eachContext { context: ByteArray -> context.sum() }
+
+            val mc2 = MemoryConsumption.get()
+            log.info { mc2.toString() }
+        }
+    }
+
+    @Test
+    fun largeZeroHeapObjectTest() {
+        log.config { "Staring zero object..." }
+        val mc0 = MemoryConsumption.get()
+        log.info { mc0.toString() }
+
+        val array = ByteArray(0x1000_0000 ushr 2)
+
+        val mc1 = MemoryConsumption.get()
+        log.info { mc1.toString() }
+
+        largeHeapObjectRun(array)
+    }
+
+    @Test
+    fun largeRandomHeapObjectTest() {
+        log.config { "Staring random object..." }
+        val mc0 = MemoryConsumption.get()
+        log.info { mc0.toString() }
+
+        val array = random.randbytes(0x1000_0000 ushr 2)
+
+        val mc1 = MemoryConsumption.get()
+        log.info { mc1.toString() }
+
+        largeHeapObjectRun(array)
     }
 }

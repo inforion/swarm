@@ -4,16 +4,17 @@ import mpi.MPI
 import mpi.Request
 import ru.inforion.lab403.common.logging.logger
 import ru.inforion.lab403.swarm.Swarm
-import ru.inforion.lab403.swarm.abstracts.ARealm
-import ru.inforion.lab403.swarm.common.Parcel
+import ru.inforion.lab403.swarm.abstracts.IRealm
+import ru.inforion.lab403.swarm.common.Mail
 import ru.inforion.lab403.swarm.io.deserialize
 import ru.inforion.lab403.swarm.io.serialize
 import java.io.Serializable
+import java.nio.ByteBuffer
 import java.util.*
 import kotlin.system.exitProcess
 
 
-class MPI(vararg val args: String) : ARealm() {
+class MPI(vararg val args: String, val compress: Boolean) : IRealm {
     companion object {
         @Transient val log = logger()
 
@@ -36,17 +37,20 @@ class MPI(vararg val args: String) : ARealm() {
         }
     }
 
-    override fun asyncRequestCount(): Int = requests.filter { !it.test() }.size
+    private fun asyncRequestCount(): Int = requests.filter { !it.test() }.size
 
-    override fun send(obj: Serializable, dst: Int, blocked: Boolean) {
+    override fun pack(obj: Serializable): ByteBuffer {
         gcRequests()
-        val buffer = obj.serialize(directed = true, compress = true)
+        return obj.serialize(true, compress)
+    }
+
+    override fun send(buffer: ByteBuffer, dst: Int, blocked: Boolean) {
         val request = MPI.COMM_WORLD.iSend(buffer, buffer.limit(), MPI.BYTE, dst, messageNo)
         requests.add(request)
         messageNo++
     }
 
-    override fun recv(src: Int): Parcel {
+    override fun recv(src: Int): Mail {
         gcRequests()
 
         val id = if (src != -1) src else MPI.ANY_SOURCE
@@ -59,7 +63,7 @@ class MPI(vararg val args: String) : ARealm() {
         MPI.COMM_WORLD.recv(data, count, MPI.BYTE, status.source, status.tag)
 
 //        log.finest { "[${rank()}] recv from: $src/${status.source} $count bytes" }
-        return Parcel(status.source, data.deserialize(compress = true))
+        return Mail(status.source, data.deserialize(compress))
     }
 
     override val rank = MPI.COMM_WORLD.rank
