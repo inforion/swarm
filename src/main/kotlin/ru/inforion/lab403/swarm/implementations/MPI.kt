@@ -16,6 +16,8 @@ import kotlin.system.exitProcess
 class MPI(vararg val args: String) : ARealm() {
     companion object {
         @Transient val log = logger()
+
+        const val gcRequestsThreshold = 1024 * 1024
     }
 
     // Suppose that queue can't reach MAX_INT size
@@ -24,7 +26,7 @@ class MPI(vararg val args: String) : ARealm() {
     private val requests = LinkedList<Request>()
 
     private fun gcRequests() {
-        if (requests.size > 1024 * 1024) {
+        if (requests.size > gcRequestsThreshold) {
             requests.removeAll {
                 val isCompleted = it.test()
                 if (isCompleted)
@@ -38,7 +40,7 @@ class MPI(vararg val args: String) : ARealm() {
 
     override fun send(obj: Serializable, dst: Int, blocked: Boolean) {
         gcRequests()
-        val buffer = obj.serialize(directed = true)
+        val buffer = obj.serialize(directed = true, compress = true)
         val request = MPI.COMM_WORLD.iSend(buffer, buffer.limit(), MPI.BYTE, dst, messageNo)
         requests.add(request)
         messageNo++
@@ -57,12 +59,12 @@ class MPI(vararg val args: String) : ARealm() {
         MPI.COMM_WORLD.recv(data, count, MPI.BYTE, status.source, status.tag)
 
 //        log.finest { "[${rank()}] recv from: $src/${status.source} $count bytes" }
-        return Parcel(status.source, data.deserialize())
+        return Parcel(status.source, data.deserialize(compress = true))
     }
 
-    override fun rank(): Int = MPI.COMM_WORLD.rank
+    override val rank = MPI.COMM_WORLD.rank
 
-    override fun total(): Int = MPI.COMM_WORLD.size
+    override val total = MPI.COMM_WORLD.size
 
     override fun barrier() {
         gcRequests()
@@ -72,14 +74,14 @@ class MPI(vararg val args: String) : ARealm() {
     override fun run(swarm: Swarm) {
         MPI.Init(args)
         try {
-            if (rank() == 0) {
+            if (rank == 0) {
                 swarm.master()
             } else {
                 swarm.slave()
             }
         } catch (error: Exception) {
             MPI.Finalize()
-            log.severe { "Node[${rank()}] -> execution can't be continued:\n${error.message}" }
+            log.severe { "Node[${rank}] -> execution can't be continued:\n${error.message}" }
             error.printStackTrace()
             exitProcess(-1)
         }

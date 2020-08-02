@@ -4,11 +4,23 @@ package ru.inforion.lab403.swarm
 import org.junit.Test
 import ru.inforion.lab403.common.extensions.hexlify
 import ru.inforion.lab403.common.extensions.random
-import java.util.concurrent.ConcurrentLinkedQueue
+import ru.inforion.lab403.common.extensions.serialize
+import ru.inforion.lab403.common.logging.logger
+import ru.inforion.lab403.swarm.io.deserialize
+import ru.inforion.lab403.swarm.io.serialize
+import java.io.ByteArrayOutputStream
+import java.io.ObjectInputStream
+import java.io.ObjectOutputStream
+import java.util.zip.GZIPInputStream
+import java.util.zip.GZIPOutputStream
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-class SwarmTests {
+internal class SwarmTests {
+    companion object {
+        val log = logger()
+    }
+
     private val size = 4  // tests depend on it and should be changed
 
     @Test
@@ -41,7 +53,7 @@ class SwarmTests {
             "test/dd"
         ).parallelize(swarm).mapContext { context: Context, value ->
             context.x += 1
-            println(context)
+            log.info(context.toString())
             value.toUpperCase().split("/")[1].toInt(16)
         }
 
@@ -49,7 +61,7 @@ class SwarmTests {
 
         val getResults = swarm.get { context: Context -> context.x }
 
-        println(getResults)
+        log.info(getResults.toString())
 
         assertEquals(getResults.size, size)
         assertTrue { getResults.none { it > 11 } }
@@ -72,11 +84,86 @@ class SwarmTests {
 
     @Test
     fun notifyReceiveTest() = threadsSwarm(size) { swarm ->
-        val no1 = swarm.addReceiveNotifier { println("1-$it") }
-        val no2 = swarm.addReceiveNotifier { println("2-$it") }
+        val no1 = swarm.addReceiveNotifier { log.info("1-$it") }
+        val no2 = swarm.addReceiveNotifier { log.info("2-$it") }
         swarm.removeReceiveNotifier(no1)
-        swarm.removeReceiveNotifier { println("2-$it") }
+        swarm.removeReceiveNotifier { log.info("2-$it") }
         val result = Array(100) { it }.parallelize(swarm).map { it.toString() }
         assertEquals(Array(100) { it.toString() }.toList(), result)
+    }
+
+    private class MemoryConsumption(val max: Long, val free: Long, val total: Long) {
+        companion object {
+            fun get() = with (Runtime.getRuntime()) {
+                val max = maxMemory() / 1024 / 1024
+                val free = freeMemory() / 1024 / 1024
+                val total = totalMemory() / 1024 / 1024
+                MemoryConsumption(max, free, total)
+            }
+        }
+
+        override fun toString() = "max=${max}MB free=${free}MB total=${total}MB"
+    }
+
+    @Test
+    fun objectGzipStream() {
+        val string = "Some insignificant string"
+
+        val baos = ByteArrayOutputStream()
+        val gos = GZIPOutputStream(baos)
+        val oos = ObjectOutputStream(gos)
+
+        oos.writeUnshared(string)
+
+        gos.finish()
+
+        baos.write(0x69)
+
+        val array = baos.toByteArray()
+
+        log.info(array.hexlify())
+
+        val bais = array.inputStream()
+
+        log.info("bais.available=${bais.available()}")
+
+        val gis = GZIPInputStream(bais)
+        val ois = ObjectInputStream(gis)
+
+        val result = ois.readUnshared() as String
+
+        log.config("bais.available=${bais.available()} due to GZIP = 0 but should be 1 (marker)")
+
+        assertEquals(string, result)
+    }
+
+    @Test
+    fun serializationGzipStream() {
+        val string = "Some insignificant string"
+
+        val array = string.serialize(false, true).array()
+        log.info { array.toString() }
+        val result = array.deserialize<String>(true)
+
+        assertEquals(string, result)
+    }
+
+    @Test
+    fun largeZeroHeapObjectTest() {
+        threadsSwarm(size) { swarm ->
+            val mc0 = MemoryConsumption.get()
+            log.info(mc0.toString())
+
+            val array = ByteArray(0x1000_0000 ushr 2)
+
+            val mc1 = MemoryConsumption.get()
+            log.info(mc1.toString())
+
+            log.severe { "Starting context..." }
+            swarm.context { array }
+            log.severe { "Finish context..." }
+        }
+
+        log.severe { "WTF?..." }
     }
 }

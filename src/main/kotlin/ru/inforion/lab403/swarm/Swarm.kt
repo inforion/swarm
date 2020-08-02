@@ -11,11 +11,11 @@ class Swarm(private val realm: ARealm, val code: (Swarm) -> Unit) {
         @Transient val log = logger()
     }
 
-    val size get() = realm.total()
+    val size get() = realm.total
 
     private val receiveNotifiers = mutableSetOf<ReceiveNotifier>()
 
-    fun <T> parallelize(iterable: Iterable<T>) = Parallel(this, iterable)
+    fun <T> parallelize(collection: Collection<T>) = Parallel(this, collection)
 
     fun <T> context(context: (Int) -> T) = forEach { it.context = context(it.rank) }
 
@@ -31,8 +31,8 @@ class Swarm(private val realm: ARealm, val code: (Swarm) -> Unit) {
         return receiveOrdered(size - 1, -1)
     }
 
-    fun <C, T, R>mapContext(iterable: Iterable<T>, block: (C, T) -> R): Collection<R> {
-        val tasks = iterable.mapIndexed { index, value ->
+    fun <C, T, R>mapContext(collection: Collection<T>, block: (C, T) -> R): Collection<R> {
+        val tasks = collection.mapIndexed { index, value ->
             object : ITask {
                 override fun execute(slave: Slave) {
                     val result = block(slave.context as C, value)
@@ -44,8 +44,8 @@ class Swarm(private val realm: ARealm, val code: (Swarm) -> Unit) {
         return receiveOrdered(tasks.size, 0)
     }
 
-    fun <T, R>map(iterable: Iterable<T>, block: (T) -> R): Collection<R> {
-        val tasks = iterable.mapIndexed { index, value ->
+    fun <T, R>map(collection: Collection<T>, block: (T) -> R): Collection<R> {
+        val tasks = collection.mapIndexed { index, value ->
             object : ITask {
                 override fun execute(slave: Slave) {
                     val result = block(value)

@@ -11,7 +11,7 @@ class Slave(private val realm: ARealm, var working: Boolean = true, var context:
 
     fun barrier() = realm.barrier()
 
-    val rank get() = realm.rank()
+    val rank get() = realm.rank
 
     fun <R> response(result: R, index: Int) = realm.sendToMaster(Response(result, index), true)
 

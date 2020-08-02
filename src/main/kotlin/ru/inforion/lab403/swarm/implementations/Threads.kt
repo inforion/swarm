@@ -19,7 +19,17 @@ class Threads(val size: Int) : ARealm() {
         @Transient val log = logger()
     }
 
-    private val incoming = Array(size + 1) { LinkedBlockingQueue<Pair<Int, ByteArray>>() }
+    private fun <T> LinkedBlockingQueue<T>.take(predicate: (T) -> Boolean): T {
+        while (true) {
+            val item = take()
+            if (predicate(item)) return item
+            put(item)
+        }
+    }
+
+    private class QueueEntry(val sender: Int, val data: ByteArray)
+
+    private val incoming = Array(size + 1) { LinkedBlockingQueue<QueueEntry>() }
 
     private val barrier = CyclicBarrier(size + 1)
 
@@ -28,26 +38,19 @@ class Threads(val size: Int) : ARealm() {
     override fun asyncRequestCount(): Int = 0
 
     override fun send(obj: Serializable, dst: Int, blocked: Boolean) {
-        val buffer = obj.serialize(directed = false)
-        incoming[dst].put(Pair(rank(), buffer.array()))
+        log.config { "[${rank}] obj=$obj dst=$dst block=$blocked" }
+        val buffer = obj.serialize(directed = false, compress = true)
+        incoming[dst].put(QueueEntry(rank, buffer.array()))
     }
 
     override fun recv(src: Int): Parcel {
-        if (src != -1) {
-            while (true) {
-                val info = incoming[rank()].take()
-                if (info.first == src)
-                    return Parcel(info.first, info.second.deserialize())
-                incoming[rank()].put(info)
-            }
-        } else {
-            val info = incoming[rank()].take()
-            return Parcel(info.first, info.second.deserialize())
-        }
+        val queue = incoming[rank]
+        val entry = if (src != -1) queue.take { it.sender == src } else queue.take()
+        return Parcel(entry.sender, entry.data.deserialize(compress = true))
     }
 
-    override fun rank(): Int = threads.indexOf(Thread.currentThread())
-    override fun total(): Int = threads.size
+    override val rank get() = threads.indexOf(Thread.currentThread())
+    override val total get() = threads.size
 
     override fun barrier() {
         barrier.await()
@@ -57,17 +60,18 @@ class Threads(val size: Int) : ARealm() {
         threads.add(Thread.currentThread())
 
         repeat(size) {
-            threads.add(thread {
+            val slave = thread {
                 try {
                     swarm.slave()
                 } catch (exc: InterruptedException) {
-                    log.info { "Thread ${rank()} interrupted" }
-                } catch (error: Exception) {
-                    log.severe { "Node[${rank()}] -> execution can't be continued:\n${error.message}" }
+                    log.info { "Thread ${rank} interrupted" }
+                } catch (error: Throwable) {
+                    log.severe { "Node[${rank}] -> execution can't be continued:" }
                     error.printStackTrace()
                     exitProcess(-1)
                 }
-            })
+            }
+            threads.add(slave)
         }
 
         swarm.master()
