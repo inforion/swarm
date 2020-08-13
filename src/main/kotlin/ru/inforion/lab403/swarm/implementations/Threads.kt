@@ -47,7 +47,15 @@ class Threads(val size: Int, val compress: Boolean) : IRealm {
         return Mail(sender, data.deserialize(compress))
     }
 
-    override val rank get() = threads.indexOf(Thread.currentThread())
+    override val rank: Int
+        get() {
+            val thread = Thread.currentThread()
+            val index = threads.indexOf(thread)
+            // If thread created inside Swarm master code then id of current thread changed
+            // so if we not found thread suppose that it is master. Also suppose that
+            // rank can't be called inside thread inside slave node otherwise it won't work
+            return if (index != -1) index else 0
+        }
     override val total get() = threads.size
 
     override fun barrier() {
@@ -58,11 +66,11 @@ class Threads(val size: Int, val compress: Boolean) : IRealm {
         threads.add(Thread.currentThread())
 
         repeat(size) {
-            val slave = thread {
+            val slave = thread(name = "SwarmSlave-${it + 1}") {
                 try {
                     swarm.slave()
                 } catch (exc: InterruptedException) {
-                    log.info { "Thread ${rank} interrupted" }
+                    log.info { "Thread $rank interrupted" }
                 } catch (error: Throwable) {
                     log.severe { "Node[${rank}] -> execution can't be continued:" }
                     error.printStackTrace()

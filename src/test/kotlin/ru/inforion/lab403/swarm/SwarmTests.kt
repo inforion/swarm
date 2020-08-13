@@ -15,6 +15,7 @@ import java.util.logging.Level
 import java.util.logging.Logger
 import java.util.zip.GZIPInputStream
 import java.util.zip.GZIPOutputStream
+import kotlin.concurrent.thread
 import kotlin.system.measureTimeMillis
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -71,12 +72,33 @@ internal class SwarmTests {
     }
 
     @Test
-    fun mapTest() = threadsSwarm(size) { swarm ->
+    fun mapTestMany() = threadsSwarm(size) { swarm ->
         val result = listOf("test/ab", "test/cd", "test/dd").parallelize(swarm).map {
             it.toUpperCase().split("/")[1].toInt(16)
         }
 
         assertEquals(listOf(0xAB, 0xCD, 0xDD), result)
+    }
+
+    @Test
+    fun mapTestSingle() = threadsSwarm(1) { swarm ->
+        val result = listOf("test/ab", "test/cd", "test/dd").parallelize(swarm).map {
+            it.toUpperCase().split("/")[1].toInt(16)
+        }
+
+        assertEquals(listOf(0xAB, 0xCD, 0xDD), result)
+    }
+
+    @Test
+    fun mapTestSingleWithThread() = threadsSwarm(2) { swarm ->
+        var result: Collection<Int>? = null
+        thread {
+            result = listOf("test/ab", "test/cd", "test/dd").parallelize(swarm).map {
+                it.toUpperCase().split("/")[1].toInt(16)
+            }
+        }.join()
+
+        assertEquals(setOf(0xAB, 0xCD, 0xDD), result!!.toSet())
     }
 
     @Test
