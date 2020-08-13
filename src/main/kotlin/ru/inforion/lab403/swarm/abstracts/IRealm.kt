@@ -5,7 +5,9 @@ import ru.inforion.lab403.swarm.common.Mail
 import java.io.Serializable
 import java.nio.ByteBuffer
 
-
+/**
+ * {EN} Interface for parallelization drivers for Swarm {EN}
+ */
 interface IRealm {
     /**
      * {EN} Point where all nodes must reach before continue {EN}
@@ -13,38 +15,52 @@ interface IRealm {
     fun barrier()
 
     /**
-     * {RU}
-     * Свойство возвращает номер данного узла из всего списка, например:
-     *   Для исполнения на потоках - номер потока
-     *   для исполнения на MPI - номер узла
-     * {RU}
+     * {EN}
+     * Ordered number of node
+     *
+     * NOTE: Slave numbers start from 1, the 0 number is always assigned to Master
+     * {EN}
      */
     val rank: Int
 
     /**
-     * {RU}
-     * Общее количество вычислительных узлов
-     * {RU}
+     * {EN} Total number of calculation nodes {EN}
      */
     val total: Int
 
     /**
-     * {RU}
-     * Принять посылку от заданного узла (-1 от любого узла)
+     * {EN}
+     * Method defines how to receive data from other node
      *
-     * @param src номер узла, от которого следует принять посылку
-     * {RU}
+     * @param src node number from which waiting for data (-1 any node is good)
+     * {EN}
      */
     fun recv(src: Int): Mail
 
     /**
-     * {RU}
+     * {EN}
+     * Method defines how to send a data to other calculation node
      *
-     * {RU}
+     * @param buffer data to send
+     * @param dst index of destination node
+     * @param blocked wait until destination received data
+     * {EN}
      */
     fun send(buffer: ByteBuffer, dst: Int, blocked: Boolean)
 
+    /**
+     * {EN}
+     * Method defines how to pack data before send
+     * This method extracted from [send] because for some task (i.e. context sending)
+     *   we should not serialize context each time because it won't be differ.
+     *
+     * @param obj object to serialize into data buffer
+     * {EN}
+     */
     fun pack(obj: Serializable): ByteBuffer
 
+    /**
+     * {EN} Method defines what to do when realm driver run {EN}
+     */
     fun run(swarm: Swarm)
 }

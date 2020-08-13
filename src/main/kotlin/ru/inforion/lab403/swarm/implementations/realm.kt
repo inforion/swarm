@@ -16,9 +16,18 @@ inline fun IRealm.recvFromAny(): Mail = recv(-1)
 
 inline fun IRealm.recvFromOthersUntil(block: (data: Mail) -> Boolean) {
     do {
-        val parcel = recv(-1)
+        val parcel = recvFromAny()
         val cont = block(parcel)
     } while (cont)
+}
+
+inline fun IRealm.recvCountFromOthers(count: Int, block: (data: Mail) -> Unit) {
+    var remain = count
+
+    recvFromOthersUntil { mail ->
+        block(mail)
+        --remain != 0
+    }
 }
 
 inline fun IRealm.recvFromOthers(block: (data: Mail) -> Unit) =
