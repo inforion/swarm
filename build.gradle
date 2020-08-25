@@ -15,6 +15,7 @@ repositories {
 
 dependencies {
     implementation group: 'org.jetbrains.kotlin', name: 'kotlin-stdlib'
+    implementation group: 'org.jetbrains.kotlin', name: 'kotlin-test'
     implementation group: 'com.github.inforion', name: 'kotlin-logging', version: '+'
     implementation group: 'com.github.inforion', name: 'kotlin-extensions', version: '+'
 
