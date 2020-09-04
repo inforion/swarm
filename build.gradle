@@ -4,7 +4,7 @@ plugins {
 }
 
 group 'ru.inforion.lab403'
-version '0.1'
+version '0.1.0'
 
 repositories {
     mavenLocal()
@@ -16,8 +16,8 @@ repositories {
 dependencies {
     implementation group: 'org.jetbrains.kotlin', name: 'kotlin-stdlib'
     implementation group: 'org.jetbrains.kotlin', name: 'kotlin-test'
-    implementation group: 'com.github.inforion', name: 'kotlin-logging', version: '+'
-    implementation group: 'com.github.inforion', name: 'kotlin-extensions', version: '+'
+    implementation group: 'com.github.inforion', name: 'kotlin-logging', version: '0.2.0'
+    implementation group: 'com.github.inforion', name: 'kotlin-extensions', version: '0.3.1'
 
     implementation files("lib/mpi.jar")
 
