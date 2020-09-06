@@ -16,8 +16,8 @@ repositories {
 dependencies {
     implementation group: 'org.jetbrains.kotlin', name: 'kotlin-stdlib'
     implementation group: 'org.jetbrains.kotlin', name: 'kotlin-test'
-    implementation group: 'com.github.inforion', name: 'kotlin-logging', version: '0.2.0'
-    implementation group: 'com.github.inforion', name: 'kotlin-extensions', version: '0.3.1'
+    implementation group: 'com.github.inforion', name: 'kotlin-logging', version: '0.2.1'
+    implementation group: 'com.github.inforion', name: 'kotlin-extensions', version: '0.3.2'
 
     implementation files("lib/mpi.jar")
 

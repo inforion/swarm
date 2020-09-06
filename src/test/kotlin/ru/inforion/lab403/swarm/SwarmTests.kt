@@ -2,21 +2,18 @@ package ru.inforion.lab403.swarm
 
 
 import org.junit.Test
+import ru.inforion.lab403.common.extensions.bytes
 import ru.inforion.lab403.common.extensions.hexlify
 import ru.inforion.lab403.common.extensions.random
-import ru.inforion.lab403.common.extensions.serialize
 import ru.inforion.lab403.common.logging.logger
 import ru.inforion.lab403.swarm.io.deserialize
 import ru.inforion.lab403.swarm.io.serialize
 import java.io.ByteArrayOutputStream
 import java.io.ObjectInputStream
 import java.io.ObjectOutputStream
-import java.util.logging.Level
-import java.util.logging.Logger
 import java.util.zip.GZIPInputStream
 import java.util.zip.GZIPOutputStream
 import kotlin.concurrent.thread
-import kotlin.system.measureTimeMillis
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
@@ -38,7 +35,7 @@ internal class SwarmTests {
         data class Context(var x: Int, val snapshot: String)
 
         swarm.context {
-            val snapshot = random.randbytes(10)
+            val snapshot = random.bytes(10)
             Context(0, snapshot.hexlify())
         }
 
@@ -223,7 +220,7 @@ internal class SwarmTests {
         val mc0 = MemoryConsumption.get()
         log.info { mc0.toString() }
 
-        val array = random.randbytes(0x1000_0000 ushr 2)
+        val array = random.bytes(0x1000_0000 ushr 2)
 
         val mc1 = MemoryConsumption.get()
         log.info { mc1.toString() }
