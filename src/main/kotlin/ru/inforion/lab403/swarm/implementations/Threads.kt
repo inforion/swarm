@@ -1,5 +1,6 @@
 package ru.inforion.lab403.swarm.implementations
 
+import ru.inforion.lab403.common.extensions.BlockingValue
 import ru.inforion.lab403.common.logging.logger
 import ru.inforion.lab403.swarm.Swarm
 import ru.inforion.lab403.swarm.abstracts.IRealm
@@ -9,10 +10,10 @@ import ru.inforion.lab403.swarm.io.serialize
 import java.io.Serializable
 import java.nio.ByteBuffer
 import java.util.ArrayList
+import java.util.concurrent.BrokenBarrierException
 import java.util.concurrent.CyclicBarrier
 import java.util.concurrent.LinkedBlockingQueue
 import kotlin.concurrent.thread
-import kotlin.system.exitProcess
 
 class Threads(val size: Int, val compress: Boolean) : IRealm {
 
@@ -62,24 +63,42 @@ class Threads(val size: Int, val compress: Boolean) : IRealm {
         barrier.await()
     }
 
-    override fun run(swarm: Swarm) {
-        threads.add(Thread.currentThread())
+    private val exception = BlockingValue<Throwable>()
 
-        repeat(size) {
-            val slave = thread(name = "SwarmSlave-${it + 1}") {
-                try {
-                    swarm.slave()
-                } catch (exc: InterruptedException) {
-                    log.info { "Thread $rank interrupted" }
-                } catch (error: Throwable) {
-                    log.severe { "Node[${rank}] -> execution can't be continued:" }
-                    error.printStackTrace()
-                    exitProcess(-1)
+    private fun worker(name: String, action: () -> Unit) = thread(name = name) {
+        runCatching {
+            action()
+        }.onFailure { error ->
+            when (error) {
+                is InterruptedException -> log.info { "Thread $rank interrupted" }
+                is BrokenBarrierException -> log.warning { "Thread $rank barrier damaged due to other exception!" }
+                else -> {
+                    log.severe { "Node[${rank}] -> execution can't be continued: $error" }
+                    exception.offer(error)
                 }
             }
-            threads.add(slave)
+        }
+    }.also { threads.add(it) }
+
+    private fun checkAndThrowIfExceptionOccurred() {
+        val error = exception.poll(100)
+        if (error != null) {
+            threads.forEach { it.interrupt() }
+            throw error
+        }
+    }
+
+    override fun run(swarm: Swarm) {
+        val master = worker("SwarmMaster[0]") { swarm.master() }
+
+        repeat(size) {
+            worker("SwarmSlave[${it + 1}]") { swarm.slave() }
         }
 
-        swarm.master()
+        while (master.isAlive)
+            checkAndThrowIfExceptionOccurred()
+
+        // check one more time if exception was in master
+        checkAndThrowIfExceptionOccurred()
     }
 }

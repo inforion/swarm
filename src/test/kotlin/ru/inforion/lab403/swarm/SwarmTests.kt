@@ -5,7 +5,9 @@ import org.junit.Test
 import ru.inforion.lab403.common.extensions.bytes
 import ru.inforion.lab403.common.extensions.hexlify
 import ru.inforion.lab403.common.extensions.random
+import ru.inforion.lab403.common.logging.FINEST
 import ru.inforion.lab403.common.logging.logger
+import ru.inforion.lab403.swarm.common.Slave
 import ru.inforion.lab403.swarm.io.deserialize
 import ru.inforion.lab403.swarm.io.serialize
 import java.io.ByteArrayOutputStream
@@ -15,6 +17,8 @@ import java.util.zip.GZIPInputStream
 import java.util.zip.GZIPOutputStream
 import kotlin.concurrent.thread
 import kotlin.test.assertEquals
+import kotlin.test.assertFails
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 internal class SwarmTests {
@@ -116,7 +120,7 @@ internal class SwarmTests {
 
     private class MemoryConsumption(val max: Long, val free: Long, val total: Long) {
         companion object {
-            fun get() = with (Runtime.getRuntime()) {
+            fun get() = with(Runtime.getRuntime()) {
                 val max = maxMemory() / 1024 / 1024
                 val free = freeMemory() / 1024 / 1024
                 val total = totalMemory() / 1024 / 1024
@@ -147,7 +151,7 @@ internal class SwarmTests {
 
         val bais = array.inputStream()
 
-        log.info {"bais.available=${bais.available()}" }
+        log.info { "bais.available=${bais.available()}" }
 
         val gis = GZIPInputStream(bais)
         val ois = ObjectInputStream(gis)
@@ -226,5 +230,39 @@ internal class SwarmTests {
         log.info { mc1.toString() }
 
         largeHeapObjectRun(array)
+    }
+
+    @Test
+    fun exceptionSlaveTest() {
+        assertFails {
+            log.warning { "Here may be exception... it's normal" }
+            threadsSwarm(size) { swarm ->
+                swarm.context { require(it != 1) { "Won't work on first slave node!" } }
+            }
+        }
+    }
+
+    @Test
+    fun exceptionMasterTest() {
+        assertFails {
+            Swarm.log.level = FINEST
+            Slave.log.level = FINEST
+            log.warning { "Here may be exception... it's normal" }
+            threadsSwarm(size) { swarm ->
+                swarm.context {
+                    require(it != 0) { "Won't work on master node!" }
+                }
+                error("I said won't work on master node!")
+            }
+        }
+    }
+
+    @Test
+    fun exceptionFreeTest() {
+        Swarm.log.level = FINEST
+        Slave.log.level = FINEST
+        threadsSwarm(size) {
+
+        }
     }
 }
