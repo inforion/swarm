@@ -9,15 +9,13 @@ version '0.1.0'
 repositories {
     mavenLocal()
     mavenCentral()
-    jcenter()
-    maven { url "https://jitpack.io" }
 }
 
 dependencies {
     implementation group: 'org.jetbrains.kotlin', name: 'kotlin-stdlib'
     implementation group: 'org.jetbrains.kotlin', name: 'kotlin-test'
-    implementation group: 'com.github.inforion', name: 'kotlin-logging', version: '0.2.1'
-    implementation group: 'com.github.inforion', name: 'kotlin-extensions', version: '0.3.2'
+    implementation group: 'com.github.inforion', name: 'kotlin-logging', version: '0.2.2'
+    implementation group: 'com.github.inforion', name: 'kotlin-extensions', version: '0.3.3'
 
     implementation files("lib/mpi.jar")
 
