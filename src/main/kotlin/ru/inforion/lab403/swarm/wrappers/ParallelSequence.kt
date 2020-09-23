@@ -13,6 +13,7 @@ import ru.inforion.lab403.swarm.tasks.IndexedContextTask
  * {EN}
  */
 class ParallelSequence<T>(val swarm: Swarm, private val sequence: Sequence<T>) {
+
     /**
      * {EN}
      * Returns a list containing the results of applying the given [transform]

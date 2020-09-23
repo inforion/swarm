@@ -2,9 +2,7 @@ package ru.inforion.lab403.swarm
 
 
 import org.junit.Test
-import ru.inforion.lab403.common.extensions.bytes
-import ru.inforion.lab403.common.extensions.hexlify
-import ru.inforion.lab403.common.extensions.random
+import ru.inforion.lab403.common.extensions.*
 import ru.inforion.lab403.common.logging.FINE
 import ru.inforion.lab403.common.logging.FINEST
 import ru.inforion.lab403.common.logging.logger
@@ -20,6 +18,7 @@ import kotlin.concurrent.thread
 import kotlin.test.assertEquals
 import kotlin.test.assertFails
 import kotlin.test.assertTrue
+import kotlin.text.toInt
 
 internal class SwarmTests {
     companion object {
@@ -112,12 +111,12 @@ internal class SwarmTests {
         assertEquals(setOf(0xAB, 0xCD, 0xDD), result!!.toSet())
     }
 
-//    @Test
-//    fun mapSequenceTest() = threadsSwarm(4) { swarm ->
-//        sequence(128) {
-//            it
-//        }.parallelize()
-//    }
+    @Test
+    fun mapSequenceTest() = threadsSwarm(4) { swarm ->
+        val actual = sequence(256) { it }.parallelize(swarm).map { it.lhex2 }
+        val expected = collect(256) { it.lhex2 }
+        assertEquals(expected, actual)
+    }
 
     @Test
     fun contextCreateTest() = threadsSwarm(size) { swarm ->
