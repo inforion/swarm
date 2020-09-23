@@ -14,39 +14,54 @@ inline fun IRealm.recvFromSlave(src: Int): Mail = recv(src)
 
 inline fun IRealm.recvFromAny(): Mail = recv(-1)
 
-inline fun IRealm.recvFromOthersUntil(block: (data: Mail) -> Boolean) {
+inline fun IRealm.recvFromOthersUntil(predicate: (data: Mail) -> Boolean) {
     do {
         val parcel = recvFromAny()
-        val cont = block(parcel)
+        val cont = predicate(parcel)
     } while (cont)
 }
 
-inline fun IRealm.recvCountFromOthers(count: Int, block: (data: Mail) -> Unit) {
+inline fun IRealm.recvCountFromOthers(count: Int, action: (data: Mail) -> Unit) {
     var remain = count
 
     recvFromOthersUntil { mail ->
-        block(mail)
+        action(mail)
         --remain != 0
     }
 }
 
-inline fun IRealm.recvFromOthers(block: (data: Mail) -> Unit) =
-    recvFromOthersUntil { parcel -> block(parcel); false }
+inline fun IRealm.recvFromOthers(action: (data: Mail) -> Unit) =
+    recvFromOthersUntil { parcel -> action(parcel); false }
 
 inline fun IRealm.sendToMaster(obj: Serializable, blocked: Boolean = true) = send(pack(obj), 0, blocked)
 inline fun IRealm.sendToSlave(obj: Serializable, dst: Int, blocked: Boolean = true) = send(pack(obj), dst, blocked)
 
-inline fun <T> IRealm.sendToAllEvenly(collection: Collection<T>, blocked: Boolean, block: (T) -> Serializable) {
+/**
+ * Sends item from iterable or collection or sequence to slave
+ *
+ * @param index iterable item index
+ * @param item iterable data to send
+ * @param blocked wait until received or not
+ * @param transform make a transformation of [item] before send
+ */
+inline fun <T> IRealm.sendIterableItem(index: Int, item: T, blocked: Boolean, transform: (T) -> Serializable) {
     // TODO: Add not 0 exclusion but rank
-    collection.forEachIndexed { k, item ->
-        val index = k % (total - 1) + 1
-        val obj = block(item)
-        send(pack(obj), index, blocked)
-    }
+    val slave = index % (total - 1) + 1
+    val obj = transform(item)
+    send(pack(obj), slave, blocked)
 }
 
-inline fun IRealm.sendToAllEvenly(collection: Collection<Serializable>, blocked: Boolean = true) =
-    sendToAllEvenly(collection, blocked) { it }
+inline fun <T> IRealm.sendToAllEvenly(sequence: Sequence<T>, blocked: Boolean, transform: (T) -> Serializable): Int {
+    var total = 0
+    sequence.forEachIndexed { k, item -> sendIterableItem(k, item, blocked, transform); total++ }
+    return total
+}
+
+inline fun <T> IRealm.sendToAllEvenly(iterable: Iterable<T>, blocked: Boolean, transform: (T) -> Serializable): Int {
+    var total = 0
+    iterable.forEachIndexed { k, item -> sendIterableItem(k, item, blocked, transform); total++ }
+    return total
+}
 
 inline fun IRealm.sendToOthers(obj: Serializable, blocked: Boolean = true) {
     val data = pack(obj)

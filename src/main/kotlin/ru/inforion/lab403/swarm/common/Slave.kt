@@ -2,11 +2,11 @@ package ru.inforion.lab403.swarm.common
 
 import ru.inforion.lab403.common.logging.logger
 import ru.inforion.lab403.swarm.abstracts.IRealm
+import ru.inforion.lab403.swarm.implementations.MPI
+import ru.inforion.lab403.swarm.implementations.Threads
 import ru.inforion.lab403.swarm.implementations.recvFromAny
 import ru.inforion.lab403.swarm.implementations.sendToMaster
 import ru.inforion.lab403.swarm.interfaces.ITask
-import ru.inforion.lab403.swarm.implementations.MPI
-import ru.inforion.lab403.swarm.implementations.Threads
 
 /**
  * {EN}
@@ -44,7 +44,7 @@ internal class Slave(private val realm: IRealm, var working: Boolean = true, var
      * Send response to master after action
      *
      * @param result execution result
-     * @param index order of result (i.e. index in from input collection or slave rank)
+     * @param index order of result (i.e. index in from input or slave rank)
      * {EN}
      */
     fun <R> response(result: R, index: Int) = realm.sendToMaster(Response(result, index), true)

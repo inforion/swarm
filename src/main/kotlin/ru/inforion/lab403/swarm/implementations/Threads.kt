@@ -9,12 +9,18 @@ import ru.inforion.lab403.swarm.io.deserialize
 import ru.inforion.lab403.swarm.io.serialize
 import java.io.Serializable
 import java.nio.ByteBuffer
-import java.util.ArrayList
+import java.util.*
 import java.util.concurrent.BrokenBarrierException
 import java.util.concurrent.CyclicBarrier
 import java.util.concurrent.LinkedBlockingQueue
 import kotlin.concurrent.thread
 
+/**
+ * Threads realm for [Swarm]
+ *
+ * @property size number of slaves
+ * @property compress compress data when transfer it by net or not
+ */
 class Threads(val size: Int, val compress: Boolean) : IRealm {
 
     companion object {

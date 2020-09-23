@@ -4,16 +4,20 @@ package ru.inforion.lab403.swarm
 
 import ru.inforion.lab403.common.logging.logger
 import ru.inforion.lab403.swarm.abstracts.IRealm
-import ru.inforion.lab403.swarm.common.Slave
 import ru.inforion.lab403.swarm.common.Response
+import ru.inforion.lab403.swarm.common.Slave
 import ru.inforion.lab403.swarm.implementations.*
 import ru.inforion.lab403.swarm.interfaces.ITask
+import ru.inforion.lab403.swarm.tasks.IndexedCommonTask
+import ru.inforion.lab403.swarm.wrappers.ParallelIterable
+import ru.inforion.lab403.swarm.wrappers.ParallelSequence
+import java.io.Serializable
 
 /**
  * {EN}
  * Main class of Swarm library
  *
- * Class contains method to access to other nodes and methods to parallelize collections
+ * Class contains method to access to other nodes and methods to parallelize iterable objects
  *
  * @param realm parallelization driver to use, see [MPI] or [Threads]
  * @param code Swarm master node code, i.e. code run under Swarm library
@@ -31,15 +35,27 @@ class Swarm(private val realm: IRealm, val code: (Swarm) -> Unit) {
 
     /**
      * {EN}
-     * Wrap the specified collection into Swarm [Parallel] class.
-     * After collection wrapped parallelized collection method can be called.
+     * Wrap the specified iterable object into Swarm [ParallelIterable] class.
+     * After iterable object wrapped parallelized method can be called.
      *
-     * @param collection collection to wrap
+     * @param iterable iterable to wrap
      *
-     * @param T type of collection element
+     * @param T type of element
      * {EN}
      */
-    fun <T> parallelize(collection: Collection<T>) = Parallel(this, collection)
+    fun <T> parallelize(iterable: Iterable<T>) = ParallelIterable(this, iterable)
+
+    /**
+     * {EN}
+     * Wrap the specified iterable object into Swarm [ParallelIterable] class.
+     * After iterable object wrapped parallelized method can be called.
+     *
+     * @param sequence sequence to wrap
+     *
+     * @param T type of element
+     * {EN}
+     */
+    fun <T> parallelize(sequence: Sequence<T>) = ParallelSequence(this, sequence)
 
     /**
      * {EN}
@@ -55,88 +71,35 @@ class Swarm(private val realm: IRealm, val code: (Swarm) -> Unit) {
      * {EN}
      * Executes given block of code on each slave node with previously created context
      *
-     * @param block code to execute on each slave node
+     * @param action code to execute on each slave node
      * {EN}
      */
-    fun <C> eachContext(block: (context: C) -> Unit) = forEach { block(it.context as C) }
+    fun <C> eachContext(action: (context: C) -> Unit) = forEach { action(it.context as C) }
 
     /**
      * {EN}
      * Executes given block of code on each slave node
      *
-     * @param block code to execute on each slave node
+     * @param action code to execute on each slave node
      * {EN}
      */
-    fun each(block: (Int) -> Unit) = forEach { block(it.rank) }
+    fun each(action: (Int) -> Unit) = forEach { action(it.rank) }
 
     /**
      * {EN}
      * Executes given block of code on each slave node with previously created context and get something
      *   from execution. Using this method context related or other data may be collected from slave nodes.
      *
-     * @param block code to execute on each slave node
+     * @param action code to execute on each slave node
      * {EN}
      */
-    fun <C, R> get(block: (context: C) -> R): List<R> {
+    fun <C, R> get(action: (context: C) -> R): List<R> {
         forEach(false) {
             @Suppress("UNCHECKED_CAST")
-            val result = block(it.context as C)
+            val result = action(it.context as C)
             it.response(result, it.rank)
         }
         return receiveOrdered(size - 1, -1)
-    }
-
-    /**
-     * {EN}
-     * Returns a list containing the results of applying the given [block]
-     *   function to each element in the original collection using
-     *   parallelization with previously created context.
-     *
-     * @param collection collection to transform
-     * @param block code to apply to each element of collection
-     * {EN}
-     */
-    fun <C, T, R> mapContext(collection: Collection<T>, block: (C, T) -> R): Collection<R> {
-        val tasks = collection.mapIndexed { index, value ->
-            object : ITask {
-                override fun execute(slave: Slave) {
-                    @Suppress("UNCHECKED_CAST")
-                    val result = block(slave.context as C, value)
-                    slave.response(result, index)
-                }
-            }
-        }
-        realm.sendToAllEvenly(tasks, true)
-        return receiveOrdered(tasks.size, 0)
-    }
-
-    /**
-     * {EN}
-     * Returns a list containing the results of applying the given [block]
-     *   function to each element in the original collection using parallelization.
-     *
-     * @param collection collection to transform
-     * @param block code to apply to each element of collection
-     * {EN}
-     */
-    fun <T, R> map(collection: Collection<T>, block: (T) -> R): Collection<R> {
-        val tasks = collection.mapIndexed { index, value -> IndexedCommonTask(index, value, block) }
-        realm.sendToAllEvenly(tasks, true)
-        return receiveOrdered(tasks.size, 0)
-    }
-
-    /**
-     * {EN}
-     * Returns a list containing only elements matching the given [predicate] using parallelization.
-     *
-     * @param collection collection to filter
-     * @param predicate code to apply to each element of collection
-     * {EN}
-     */
-    fun <T> filter(collection: Collection<T>, predicate: (T) -> Boolean): Collection<T> {
-        val tasks = collection.mapIndexed { index, value -> IndexedCommonTask(index, value, predicate) }
-        realm.sendToAllEvenly(tasks, true)
-        return receiveFiltered(tasks)
     }
 
     /**
@@ -164,13 +127,6 @@ class Swarm(private val realm: IRealm, val code: (Swarm) -> Unit) {
      */
     fun removeReceiveNotifier(notifier: ReceiveNotifier) = receiveNotifiers.remove(notifier)
 
-    private class IndexedCommonTask<T, R>(val index: Int, val value: T, val block: (T) -> R) : ITask {
-        override fun execute(slave: Slave) {
-            val result = block(value)
-            slave.response(result, index)
-        }
-    }
-
     private inline fun <T, C: Collection<T>, R> fold(
         size: Int,
         initial: C,
@@ -179,13 +135,20 @@ class Swarm(private val realm: IRealm, val code: (Swarm) -> Unit) {
         realm.recvCountFromOthers(size) { mail ->
             val response = mail.objectAs<Response<R>>()
             block(initial, response)
+            log.finest { "Received mail -> $mail" }
             receiveNotifiers.forEach { it.invoke(mail.sender) }
         }
 
         return initial
     }
 
-    private inline fun <T> receiveFiltered(tasks: List<IndexedCommonTask<T, *>>): List<T> {
+    internal fun sendToAllEvenly(sequence: Sequence<Serializable>, blocked: Boolean = true) =
+        realm.sendToAllEvenly(sequence, blocked) { it }
+
+    internal fun sendToAllEvenly(iterable: Iterable<Serializable>, blocked: Boolean = true) =
+        realm.sendToAllEvenly(iterable, blocked) { it }
+
+    internal inline fun <T> receiveFiltered(tasks: List<IndexedCommonTask<T, *>>): List<T> {
         val result = fold(size, listOfNulls<T?>(size)) { acc, response: Response<Boolean> ->
             if (response.data) acc[response.index] = tasks[response.index].value
         }
@@ -194,7 +157,7 @@ class Swarm(private val realm: IRealm, val code: (Swarm) -> Unit) {
         return notNulls
     }
 
-    private inline fun <T> receiveOrdered(size: Int, offset: Int) =
+    internal inline fun <T> receiveOrdered(size: Int, offset: Int) =
         fold(size, listOfNulls<T?>(size)) { acc, response: Response<T> ->
             acc[response.index + offset] = response.data
         } as List<T>
@@ -204,12 +167,11 @@ class Swarm(private val realm: IRealm, val code: (Swarm) -> Unit) {
     private inline fun <T> listOfNulls(size: Int) = Array<Any?>(size) { null }.asList() as MutableList<T?>
 
     private inline fun forEach(sync: Boolean = true, crossinline block: (Slave) -> Unit): Swarm {
-        val task = object : ITask {
-            override fun execute(slave: Slave) {
-                block(slave)
-                if (sync) slave.barrier()
-            }
+        val task = ITask { slave ->
+            block(slave)
+            if (sync) slave.barrier()
         }
+        log.finest { "Send task '${task}' to all others" }
         realm.sendToOthers(task)
         if (sync) realm.barrier()
         return this

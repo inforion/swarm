@@ -5,6 +5,7 @@ import org.junit.Test
 import ru.inforion.lab403.common.extensions.bytes
 import ru.inforion.lab403.common.extensions.hexlify
 import ru.inforion.lab403.common.extensions.random
+import ru.inforion.lab403.common.logging.FINE
 import ru.inforion.lab403.common.logging.FINEST
 import ru.inforion.lab403.common.logging.logger
 import ru.inforion.lab403.swarm.common.Slave
@@ -18,7 +19,6 @@ import java.util.zip.GZIPOutputStream
 import kotlin.concurrent.thread
 import kotlin.test.assertEquals
 import kotlin.test.assertFails
-import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 internal class SwarmTests {
@@ -27,6 +27,16 @@ internal class SwarmTests {
     }
 
     private val size = 4  // tests depend on it and should be changed
+
+    private fun finest() {
+        Swarm.log.level = FINEST
+        Slave.log.level = FINEST
+    }
+
+    private fun fine() {
+        Swarm.log.level = FINE
+        Slave.log.level = FINE
+    }
 
     @Test
     fun rankTest() = threadsSwarm(size) { swarm ->
@@ -102,9 +112,18 @@ internal class SwarmTests {
         assertEquals(setOf(0xAB, 0xCD, 0xDD), result!!.toSet())
     }
 
+//    @Test
+//    fun mapSequenceTest() = threadsSwarm(4) { swarm ->
+//        sequence(128) {
+//            it
+//        }.parallelize()
+//    }
+
     @Test
     fun contextCreateTest() = threadsSwarm(size) { swarm ->
-        val result = swarm.context { "context-$it" }.get { context: String -> context }
+        val result = swarm
+            .context { "context-$it" }
+            .get { context: String -> context }
         assertEquals(listOf("context-1", "context-2", "context-3", "context-4"), result)
     }
 
@@ -244,9 +263,8 @@ internal class SwarmTests {
 
     @Test
     fun exceptionMasterTest() {
+        finest()
         assertFails {
-            Swarm.log.level = FINEST
-            Slave.log.level = FINEST
             log.warning { "Here may be exception... it's normal" }
             threadsSwarm(size) { swarm ->
                 swarm.context {
@@ -255,14 +273,15 @@ internal class SwarmTests {
                 error("I said won't work on master node!")
             }
         }
+        fine()
     }
 
     @Test
     fun exceptionFreeTest() {
-        Swarm.log.level = FINEST
-        Slave.log.level = FINEST
+        finest()
         threadsSwarm(size) {
 
         }
+        fine()
     }
 }
