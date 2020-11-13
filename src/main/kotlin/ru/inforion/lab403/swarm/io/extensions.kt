@@ -60,6 +60,9 @@ fun <T: Serializable> T.calcObjectSize(compress: Boolean) =
  * {RU}
  */
 fun <T: Serializable> T.serialize(directed: Boolean, compress: Boolean): ByteBuffer {
+//    TODO: code for serialization verification, make it configurable
+//    val stream1 = DummyOutputStream(verifiable = true).apply { serialize(this, compress) }
+//    val stream2 = DummyOutputStream(stream1, verifiable = true).apply { serialize(this, compress) }
     val size = calcObjectSize(compress)
     return BufferOutputStream(size, directed).apply { serialize(this, compress) }.buffer
 }
