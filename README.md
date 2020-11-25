@@ -1,3 +1,6 @@
+[![](https://jitpack.io/v/inforion/swarm.svg)](https://jitpack.io/#inforion/swarm)
+[![Maven Central](https://maven-badges.herokuapp.com/maven-central/com.github.inforion/swarm/badge.svg)](https://mvnrepository.com/artifact/com.github.inforion/swarm)
+
 # Swarm
 
 Library written in pure Kotlin to use for parallel computations with map programming paradigm. It may run on top of MPI (for multi-computer computation) or threads (for single machine).
