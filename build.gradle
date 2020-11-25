@@ -1,20 +1,24 @@
 plugins {
-    id 'org.jetbrains.kotlin.jvm' version '1.4.10'
+    id 'signing'
+    id 'maven'
     id 'maven-publish'
+    id 'org.jetbrains.kotlin.jvm' version '1.4.10'
+    id 'org.jetbrains.dokka' version '1.4.0'
 }
 
-group 'ru.inforion.lab403'
+group 'com.github.inforion'
 version '0.2.0'
 
 repositories {
     mavenLocal()
     mavenCentral()
+    jcenter()
 }
 
 dependencies {
     implementation group: 'org.jetbrains.kotlin', name: 'kotlin-stdlib'
     implementation group: 'org.jetbrains.kotlin', name: 'kotlin-test'
-    implementation group: 'com.github.inforion', name: 'kotlin-logging', version: '0.2.2'
+    implementation group: 'com.github.inforion', name: 'kotlin-logging', version: '0.2.3'
     implementation group: 'com.github.inforion', name: 'kotlin-extensions', version: '0.3.4'
 
     implementation files("lib/mpi.jar")
@@ -22,11 +26,6 @@ dependencies {
     testImplementation group: 'junit', name: 'junit', version: '4.13'
     testImplementation group: 'org.junit.jupiter', name: 'junit-jupiter-api', version: '5.6.2'
     testImplementation group: 'org.junit.jupiter', name: 'junit-jupiter-engine', version: '5.6.2'
-}
-
-task sourcesJar(type: Jar, dependsOn: classes) {
-    classifier = 'sources'
-    from sourceSets.main.allSource
 }
 
 test {
@@ -57,15 +56,87 @@ compileTestKotlin {
     kotlinOptions.jvmTarget = "11"
 }
 
-publishing {
-    publications {
-        maven(MavenPublication) {
-            groupId = group
-            artifactId = 'swarm'
-            version = version
-
-            from components.kotlin
-            artifact tasks.sourcesJar
+dokkaJavadoc.configure {
+    dokkaSourceSets {
+        configureEach {
+            includeNonPublic = false
+            reportUndocumented = true
+            jdkVersion = "11"
+            skipEmptyPackages = true
+            noStdlibLink = false
+            noJdkLink = false
         }
     }
+}
+
+task dokkaJar(type: Jar, dependsOn: dokkaJavadoc) {
+    classifier = 'javadoc'
+    from dokkaJavadoc
+}
+
+task sourcesJar(type: Jar, dependsOn: classes) {
+    classifier = 'sources'
+    from sourceSets.main.allSource
+}
+
+publishing {
+    repositories {
+        maven {
+            credentials {
+                username = project.properties["mavenUsername"]
+                password = project.properties["mavenPassword"]
+            }
+
+            def releasesRepoUrl = uri("https://oss.sonatype.org/service/local/staging/deploy/maven2/")
+            def snapshotsRepoUrl = uri("https://oss.sonatype.org/content/repositories/snapshots/")
+            url = version.endsWith("SNAPSHOT") ? snapshotsRepoUrl : releasesRepoUrl
+        }
+    }
+
+    publications {
+        swarm(MavenPublication) {
+            from components.kotlin
+
+            artifact tasks.dokkaJar
+            artifact tasks.sourcesJar
+
+            pom {
+                groupId = group
+                artifactId = "swarm"
+                name = "swarm"
+                version = version
+                url = "https://github.com/inforion/swarm"
+                description = 'Library parallel computing with map-paradigm working on top of threads or MPI'
+
+                licenses {
+                    license {
+                        name = 'The MIT License'
+                        url = 'https://opensource.org/licenses/MIT'
+                    }
+                }
+
+                developers {
+                    developer {
+                        name = 'Alexei Gladkikh'
+                        email = 'gladkikhalexei@gmail.com'
+                        organization = 'INFORION, LLC'
+                    }
+                }
+
+                scm {
+                    connection = 'scm:git:git://github.com/inforion/swarm.git'
+                    developerConnection = 'scm:git:ssh://github.com/inforion/swarm.git'
+                    url = "https://github.com/inforion/swarm"
+                }
+            }
+        }
+    }
+}
+
+signing {
+    required = false
+    if (project.hasProperty('signing.keyId')) {
+        useGpgCmd()
+    }
+    sign publishing.publications.swarm
 }
