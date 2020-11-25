@@ -134,9 +134,7 @@ publishing {
 }
 
 signing {
-    required = false
-    if (project.hasProperty('signing.keyId')) {
-        useGpgCmd()
-    }
+    required = project.hasProperty('signing.gnupg.keyName')
+    if (required) useGpgCmd()
     sign publishing.publications.swarm
 }
