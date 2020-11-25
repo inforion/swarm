@@ -6,58 +6,49 @@ import java.util.zip.GZIPInputStream
 import java.util.zip.GZIPOutputStream
 
 /**
- * {RU}
- * Обернуть выходной поток в [GZIPOutputStream], если включено сжатие данных
+ * Wraps [this] output stream in [GZIPOutputStream] if data compression is enabled otherwise returns [this]
  *
- * @param enabled включено или нет сжатие
- * {RU}
+ * @param enabled if true wraps otherwise return original stream
  */
 private fun OutputStream.gzip(enabled: Boolean) = if (enabled) GZIPOutputStream(this) else this
 
 /**
- * {RU}
- * Обернуть входной поток в [GZIPInputStream], если включено сжатие данных
+ * Wraps [this] input stream in [GZIPInputStream] if data compression is enabled otherwise returns [this]
  *
- * @param enabled включено или нет сжатие
- * {RU}
+ * @param enabled if true wraps otherwise return original stream
  */
 private fun InputStream.gzip(enabled: Boolean) = if (enabled) GZIPInputStream(this) else this
 
 /**
- * {RU}
- * Сериализовать объект в заданный поток
+ * Serialize [this] object in specified [output] stream
  *
- * @param output поток, в который будет сериализован объект
- * @param compress сжимать или нет сериализованные данные
+ * @param output is output stream to store serialized object
+ * @param compress if true stream will be wrapped with GZIP
  *
- * ВНИМАНИЕ: этот метод закрывает входной поток, поэтому после использования метода
- *   запись в поток больше недопустима. Это связано с использованием возможности сжатия
- *   с помощью GZIP-потока. Для корректной записи данных GZIP-потоком необходим вызов
- *   метода [GZIPOutputStream.finish], который может быть вызван в методе [OutputStream.close]
- * {RU}
+ * WARNING: this method closes the input stream, so after using the method,
+ *   writing to the stream is no longer allowed. This is due to the use of
+ *   the GZIP stream compression feature. To write data correctly with a
+ *   GZIP stream, call the [GZIPOutputStream.finish] method required,
+ *   which can be called in the [OutputStream.close] method
  */
 private fun <T: Serializable> T.serialize(output: OutputStream, compress: Boolean) =
     output.gzip(compress).use { ObjectOutputStream(it).writeUnshared(this) }
 
 /**
- * {RU}
- * Вычислить размер объекта после сериализации путем его фиктивной "записи" в массив
- * В реальности запись данных в память не происходит, а только смещается указатель в потоке [DummyOutputStream]
+ * Calculate the size of an object after serialization by dummy "writing" it to an array
+ * In fact data is not written to memory, but only the pointer is shifted in the [DummyOutputStream]
  *
- * @param compress вычислить размер данных с учетом того, что будет использовано сжатие или нет
- * {RU}
+ * @param compress if true calculate size for compressed with GZIP
  */
 fun <T: Serializable> T.calcObjectSize(compress: Boolean) =
     DummyOutputStream().apply { serialize(this, compress) }.written
 
 /**
- * {RU}
- * Сериализовать объект в буфер. В качестве того, куда будет сериализоваться объект выбран именно [ByteBuffer]
- * для того, чтобы его можно было передавать в нативные библиотеки, например в [MPI].
+ * Serialize an object to a buffer. [ByteBuffer] is chosen as the destination for the object
+ * to be serialized so that it can be transferred to native libraries, for example, to [MPI].
  *
- * @param directed возможна ли передача буфера в нативные библиотеки
- * @param compress сжимать или нет сериализованные данные
- * {RU}
+ * @param directed required or not buffer to be directed
+ * @param compress if true serialized data will be GZIPed
  */
 fun <T: Serializable> T.serialize(directed: Boolean, compress: Boolean): ByteBuffer {
 //    TODO: code for serialization verification, make it configurable
@@ -68,17 +59,13 @@ fun <T: Serializable> T.serialize(directed: Boolean, compress: Boolean): ByteBuf
 }
 
 /**
- * {RU}
- * Десериализует объект из потока [InputStream]
- * {RU}
+ * Deserializes object from [this] stream
  */
 @Suppress("UNCHECKED_CAST")
 fun <T: Serializable, S: InputStream> S.deserialize(compress: Boolean) =
     ObjectInputStream(gzip(compress)).readUnshared() as T
 
 /**
- * {RU}
- * Десериализует объект из массива [ByteArray]
- * {RU}
+ * Deserializes object from [this] bytes
  */
 fun <T: Serializable> ByteArray.deserialize(compress: Boolean): T = inputStream().deserialize(compress)

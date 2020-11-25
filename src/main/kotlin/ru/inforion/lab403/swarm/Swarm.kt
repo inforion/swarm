@@ -14,14 +14,12 @@ import ru.inforion.lab403.swarm.wrappers.ParallelSequence
 import java.io.Serializable
 
 /**
- * {EN}
  * Main class of Swarm library
  *
  * Class contains method to access to other nodes and methods to parallelize iterable objects
  *
  * @param realm parallelization driver to use, see [MPI] or [Threads]
  * @param code Swarm master node code, i.e. code run under Swarm library
- * {EN}
  */
 class Swarm(private val realm: IRealm, val code: (Swarm) -> Unit) {
     companion object {
@@ -29,69 +27,57 @@ class Swarm(private val realm: IRealm, val code: (Swarm) -> Unit) {
     }
 
     /**
-     * {EN} Size of Swarm include master {EN}
+     * Size of Swarm include master
      */
     val size get() = realm.total
 
     /**
-     * {EN}
      * Wrap the specified iterable object into Swarm [ParallelIterable] class.
      * After iterable object wrapped parallelized method can be called.
      *
      * @param iterable iterable to wrap
      *
      * @param T type of element
-     * {EN}
      */
     fun <T> parallelize(iterable: Iterable<T>) = ParallelIterable(this, iterable)
 
     /**
-     * {EN}
      * Wrap the specified iterable object into Swarm [ParallelIterable] class.
      * After iterable object wrapped parallelized method can be called.
      *
      * @param sequence sequence to wrap
      *
      * @param T type of element
-     * {EN}
      */
     fun <T> parallelize(sequence: Sequence<T>) = ParallelSequence(this, sequence)
 
     /**
-     * {EN}
      * Create a context with type [T] on each Swarm worker.
      * This method may be useful to create stateful parallelization tasks.
      *
      * @param context factory to create context
-     * {EN}
      */
     fun <T> context(context: (Int) -> T) = forEach { it.context = context(it.rank) }
 
     /**
-     * {EN}
      * Executes given block of code on each slave node with previously created context
      *
      * @param action code to execute on each slave node
-     * {EN}
      */
     fun <C> eachContext(action: (context: C) -> Unit) = forEach { action(it.context as C) }
 
     /**
-     * {EN}
      * Executes given block of code on each slave node
      *
      * @param action code to execute on each slave node
-     * {EN}
      */
     fun each(action: (Int) -> Unit) = forEach { action(it.rank) }
 
     /**
-     * {EN}
      * Executes given block of code on each slave node with previously created context and get something
      *   from execution. Using this method context related or other data may be collected from slave nodes.
      *
      * @param action code to execute on each slave node
-     * {EN}
      */
     fun <C, R> get(action: (context: C) -> R): List<R> {
         forEach(false) {
@@ -103,27 +89,23 @@ class Swarm(private val realm: IRealm, val code: (Swarm) -> Unit) {
     }
 
     /**
-     * {EN} Notifiers to execute when something receive from slave node {EN}
+     * Notifiers to execute when something receive from slave node
      */
     private val receiveNotifiers = mutableSetOf<ReceiveNotifier>()
 
     /**
-     * {EN}
      * Add receive notifier to be executed when something received from slave node
      *
      * @param notifier notifier callback (lambda)
      *
      * @return added callback to be able to remove it later using [removeReceiveNotifier]
-     * {EN}
      */
     fun addReceiveNotifier(notifier: ReceiveNotifier) = notifier.also { receiveNotifiers.add(it) }
 
     /**
-     * {EN}
      * Remove receive notifier
      *
      * @param notifier notifier callback to remove
-     * {EN}
      */
     fun removeReceiveNotifier(notifier: ReceiveNotifier) = receiveNotifiers.remove(notifier)
 
