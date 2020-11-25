@@ -1,6 +1,6 @@
 # Swarm
 
-Library written in pure Kotlin to use for parallel computations with map programming paradigm. It may run on top of MPI (for multi-computer computation) or threads (for single maching).
+Library written in pure Kotlin to use for parallel computations with map programming paradigm. It may run on top of MPI (for multi-computer computation) or threads (for single machine).
 
 ## Installation
 
