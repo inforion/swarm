@@ -16,8 +16,13 @@ dependencies {
 }
 ```
 
-That's it you are ready to go (for threads). If you want real cluster computation you should also install underlying MPI library. Swarm contains and uses built bindings for OpenMPI library. For linux based systems package `openmpi-bin` should be installed.
-Note that setup openmpi for cluster computation is not for faint of heart and may require additional packages.
+## MPI/OpenMPI
+
+That's it you are ready to go (for threads). If you want real cluster computation you should also install underlying MPI library. Swarm uses built bindings for OpenMPI library. To be able use of Swarm on top of MPI you should compile OpenMPI with Java bindings support. There is nothing complicated just clone OpenMPI sources and build it with `--enable-mpi-java` options. The full enough guide is in OpenMPI FAQ: https://www.open-mpi.org/faq/?category=java
+
+When you assemble your program that use `mpiSwarm` you have to provide in classpath location of **mpi.jar**. This file built during OpenMPI compilation with Java support. Also, underlying low-level OpenMPI libraries must be in your **LD_LIBRARY_PATH** or seen for Java native loader.
+
+NOTE: although compilation isn't hard and Swarm hides direct work with MPI but cluster computation is not for faint of heart.
 
 ## Parallel concept of Swarm
 
@@ -25,12 +30,12 @@ In cluster programming (and for threads-case that simulates cluster) often used 
 - master node - is the main node that get control first of all
 - slave node - is node that wait for task (from master map command) and then do a job
 
-In Swarm we always have one master node and as many slaves nodes as specified during Swarm starts.
+In Swarm, we always have one master node and as many slaves nodes as specified during Swarm starts.
 
-Also in whole program we have three main parts:
+Also in a whole program we have three main parts:
 - common code - executed for all nodes (master and slaves)
 - master code - executed only for master node
-- slave code - exectued only for slaves node
+- slave code - executed only for slaves node
 
 ## Usage
 
