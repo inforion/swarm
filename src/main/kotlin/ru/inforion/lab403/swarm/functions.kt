@@ -4,22 +4,28 @@ import ru.inforion.lab403.swarm.implementations.MPI
 import ru.inforion.lab403.swarm.implementations.Threads
 
 /**
+ * Makes parallelization of [this] iterator object under the Swarm
+ *   After that it's possible to use parallel methods
+ */
+fun <T> Iterator<T>.parallelize(swarm: Swarm) = swarm.parallelize(this)
+
+/**
  * Makes parallelization of [this] iterable object under the Swarm
  *   After that it's possible to use parallel methods
  */
-fun <T> Iterable<T>.parallelize(swarm: Swarm) = swarm.parallelize(this)
+fun <T> Iterable<T>.parallelize(swarm: Swarm) = swarm.parallelize(iterator())
 
 /**
  * Makes [this] array parallelization under the Swarm
  *   After that it's possible to use parallel methods
  */
-fun <T> Array<T>.parallelize(swarm: Swarm) = swarm.parallelize(asList())
+fun <T> Array<T>.parallelize(swarm: Swarm) = swarm.parallelize(iterator())
 
 /**
  * Makes parallelization of [this] sequence under the Swarm
  *   After that it's possible to use parallel methods
  */
-fun <T> Sequence<T>.parallelize(swarm: Swarm) = swarm.parallelize(this)
+fun <T> Sequence<T>.parallelize(swarm: Swarm) = swarm.parallelize(iterator())
 
 /**
  * Creates Swarm on thread implementation

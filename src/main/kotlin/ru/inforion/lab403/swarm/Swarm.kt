@@ -4,14 +4,10 @@ package ru.inforion.lab403.swarm
 
 import ru.inforion.lab403.common.logging.logger
 import ru.inforion.lab403.swarm.abstracts.IRealm
-import ru.inforion.lab403.swarm.common.Response
 import ru.inforion.lab403.swarm.common.Slave
 import ru.inforion.lab403.swarm.implementations.*
 import ru.inforion.lab403.swarm.interfaces.ITask
-import ru.inforion.lab403.swarm.tasks.IndexedCommonTask
-import ru.inforion.lab403.swarm.wrappers.ParallelIterable
-import ru.inforion.lab403.swarm.wrappers.ParallelSequence
-import java.io.Serializable
+import ru.inforion.lab403.swarm.wrappers.ParallelIterator
 
 /**
  * Main class of Swarm library
@@ -21,7 +17,7 @@ import java.io.Serializable
  * @param realm parallelization driver to use, see [MPI] or [Threads]
  * @param code Swarm master node code, i.e. code run under Swarm library
  */
-class Swarm(private val realm: IRealm, val code: (Swarm) -> Unit) {
+class Swarm(internal val realm: IRealm, val code: (Swarm) -> Unit) {
     companion object {
         @Transient val log = logger()
     }
@@ -32,24 +28,14 @@ class Swarm(private val realm: IRealm, val code: (Swarm) -> Unit) {
     val size get() = realm.total
 
     /**
-     * Wrap the specified iterable object into Swarm [ParallelIterable] class.
+     * Wrap the specified iterable object into Swarm [ParallelIterator] class.
      * After iterable object wrapped parallelized method can be called.
      *
-     * @param iterable iterable to wrap
+     * @param iterator iterator to wrap
      *
      * @param T type of element
      */
-    fun <T> parallelize(iterable: Iterable<T>) = ParallelIterable(this, iterable)
-
-    /**
-     * Wrap the specified iterable object into Swarm [ParallelIterable] class.
-     * After iterable object wrapped parallelized method can be called.
-     *
-     * @param sequence sequence to wrap
-     *
-     * @param T type of element
-     */
-    fun <T> parallelize(sequence: Sequence<T>) = ParallelSequence(this, sequence)
+    fun <T> parallelize(iterator: Iterator<T>) = ParallelIterator(this, iterator)
 
     /**
      * Create a context with type [T] on each Swarm worker.
@@ -85,7 +71,7 @@ class Swarm(private val realm: IRealm, val code: (Swarm) -> Unit) {
             val result = action(it.context as C)
             it.response(result, it.rank)
         }
-        return receiveOrdered(size - 1, -1)
+        return realm.receiveOrdered(size - 1, -1) { }
     }
 
     /**
@@ -109,44 +95,7 @@ class Swarm(private val realm: IRealm, val code: (Swarm) -> Unit) {
      */
     fun removeReceiveNotifier(notifier: ReceiveNotifier) = receiveNotifiers.remove(notifier)
 
-    private inline fun <T, C: Collection<T>, R> fold(
-        size: Int,
-        initial: C,
-        block: (acc: C, response: Response<R>) -> Unit
-    ): C {
-        realm.recvCountFromOthers(size) { mail ->
-            val response = mail.objectAs<Response<R>>()
-            block(initial, response)
-            log.finest { "Received mail -> $mail" }
-            receiveNotifiers.forEach { it.invoke(mail.sender) }
-        }
-
-        return initial
-    }
-
-    internal fun sendToAllEvenly(sequence: Sequence<Serializable>, blocked: Boolean = true) =
-        realm.sendToAllEvenly(sequence, blocked) { it }
-
-    internal fun sendToAllEvenly(iterable: Iterable<Serializable>, blocked: Boolean = true) =
-        realm.sendToAllEvenly(iterable, blocked) { it }
-
-    internal inline fun <T> receiveFiltered(tasks: List<IndexedCommonTask<T, *>>): List<T> {
-        val result = fold(size, listOfNulls<T?>(size)) { acc, response: Response<Boolean> ->
-            if (response.data) acc[response.index] = tasks[response.index].value
-        }
-        val notNulls = ArrayList<T>(size / 2)
-        result.forEach { if (it != null) notNulls.add(it) }
-        return notNulls
-    }
-
-    internal inline fun <T> receiveOrdered(size: Int, offset: Int) =
-        fold(size, listOfNulls<T?>(size)) { acc, response: Response<T> ->
-            acc[response.index + offset] = response.data
-        } as List<T>
-
-    // arrayOfNulls require reified T parameter and thus all upper parameter must be reified
-    // that will lead to expose all private non-inline function
-    private inline fun <T> listOfNulls(size: Int) = Array<Any?>(size) { null }.asList() as MutableList<T?>
+    internal fun notify(index: Int) = receiveNotifiers.forEach { it.invoke(index) }
 
     private inline fun forEach(sync: Boolean = true, crossinline block: (Slave) -> Unit): Swarm {
         val task = ITask { slave ->

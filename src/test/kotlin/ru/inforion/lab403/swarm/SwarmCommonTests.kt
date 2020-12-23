@@ -12,6 +12,7 @@ import ru.inforion.lab403.swarm.io.serialize
 import java.io.ByteArrayOutputStream
 import java.io.ObjectInputStream
 import java.io.ObjectOutputStream
+import java.security.MessageDigest
 import java.util.zip.GZIPInputStream
 import java.util.zip.GZIPOutputStream
 import kotlin.concurrent.thread
@@ -19,10 +20,25 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFails
 import kotlin.test.assertTrue
 import kotlin.text.toInt
+import kotlin.time.ExperimentalTime
+import kotlin.time.TimedValue
+import kotlin.time.measureTimedValue
 
-internal class SwarmTests {
+
+internal class SwarmCommonTests {
     companion object {
         val log = logger()
+
+        private fun String.sha256(): String {
+            val digest = MessageDigest.getInstance("SHA-256")
+            return digest.digest(convertToBytes()).hexlify()
+        }
+
+        private fun sha256Test(value: Int, count: Int): String {
+            var result = value.toString()
+            repeat(count) { result = result.sha256() }
+            return result
+        }
     }
 
     private val size = 4  // tests depend on it and should be changed
@@ -109,13 +125,6 @@ internal class SwarmTests {
         }.join()
 
         assertEquals(setOf(0xAB, 0xCD, 0xDD), result!!.toSet())
-    }
-
-    @Test
-    fun mapSequenceTest() = threadsSwarm(4) { swarm ->
-        val actual = sequence(256) { it }.parallelize(swarm).map { it.lhex2 }
-        val expected = collect(256) { it.lhex2 }
-        assertEquals(expected, actual)
     }
 
     @Test

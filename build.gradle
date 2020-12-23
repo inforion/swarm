@@ -18,8 +18,11 @@ repositories {
 dependencies {
     implementation group: 'org.jetbrains.kotlin', name: 'kotlin-stdlib'
     implementation group: 'org.jetbrains.kotlin', name: 'kotlin-test'
+
+    implementation group: 'org.jetbrains.kotlinx', name: 'kotlinx-coroutines-core', version: "1.3.9"
+
     implementation group: 'com.github.inforion', name: 'kotlin-logging', version: '0.2.3'
-    implementation group: 'com.github.inforion', name: 'kotlin-extensions', version: '0.3.4'
+    implementation group: 'com.github.inforion', name: 'kotlin-extensions', version: '0.3.5'
 
     implementation files("lib/mpi.jar")
 
@@ -34,6 +37,8 @@ test {
     // set heap size for the test JVM(s)
     minHeapSize = "2G"
     maxHeapSize = "4G"
+
+    maxParallelForks = 1
 
     testLogging {
         events "passed", "skipped", "failed" //, "standardOut", "standardError"
