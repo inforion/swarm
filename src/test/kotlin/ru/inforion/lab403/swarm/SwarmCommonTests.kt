@@ -98,6 +98,44 @@ internal class SwarmCommonTests {
     }
 
     @Test
+    fun map2ContextTest() = threadsSwarm(size) { swarm ->
+        data class Context(var x: Int, val snapshot: String)
+
+        swarm.context {
+            val snapshot = random.bytes(10)
+            Context(0, snapshot.hexlify())
+        }
+
+        val mapResults = listOf(
+            "test/ab",
+            "test/cd",
+            "test/dd",
+            "test/ab",
+            "test/cd",
+            "test/dd",
+            "test/ab",
+            "test/cd",
+            "test/dd",
+            "test/ab",
+            "test/cd",
+            "test/dd"
+        ).parallelize(swarm).map2Context { context: Context, value ->
+            context.x += 1
+            log.info { context.toString() }
+            value.toUpperCase().split("/")[1].toInt(16)
+        }
+
+        assertEquals(listOf(0xAB, 0xCD, 0xDD, 0xAB, 0xCD, 0xDD, 0xAB, 0xCD, 0xDD, 0xAB, 0xCD, 0xDD), mapResults)
+
+        val getResults = swarm.get { context: Context -> context.x }
+
+        log.info { getResults.toString() }
+
+        assertEquals(getResults.size, size)
+        assertTrue { getResults.none { it > 11 } }
+    }
+
+    @Test
     fun mapTestMany() = threadsSwarm(size) { swarm ->
         val result = listOf("test/ab", "test/cd", "test/dd").parallelize(swarm).map {
             it.toUpperCase().split("/")[1].toInt(16)

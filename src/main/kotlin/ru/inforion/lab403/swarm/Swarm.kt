@@ -71,7 +71,7 @@ class Swarm(internal val realm: IRealm, val code: (Swarm) -> Unit) {
             val result = action(it.context as C)
             it.response(result, it.rank)
         }
-        return realm.receiveOrdered(size - 1, -1) { }
+        return realm.receiveOrderedAll(size - 1, -1) { }
     }
 
     /**

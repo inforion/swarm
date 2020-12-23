@@ -6,7 +6,9 @@ import ru.inforion.lab403.common.extensions.mutableListOfNulls
 import ru.inforion.lab403.swarm.abstracts.IRealm
 import ru.inforion.lab403.swarm.common.Mail
 import ru.inforion.lab403.swarm.common.Response
+import ru.inforion.lab403.swarm.tasks.IndexedCommonTask
 import java.io.Serializable
+import java.util.*
 
 val IRealm.all get() = (0 until total)
 val IRealm.others get() = all.filter { it != rank }
@@ -90,8 +92,24 @@ internal inline fun <T, C : Collection<T>, R> IRealm.fold(
 //    return notNulls
 //}
 
-internal inline fun <T> IRealm.receiveOrdered(size: Int, offset: Int, action: (index: Int) -> Unit) =
+internal inline fun <T> IRealm.receiveOrderedAll(size: Int, offset: Int, action: (response: Response<T>) -> Unit) =
     fold(size, mutableListOfNulls<T?>(size)) { acc, response: Response<T> ->
-        action(response.index)
+        action(response)
         acc[response.index + offset] = response.data
     } as List<T>
+
+
+internal inline fun <T> IRealm.receiveOrderedWhile(predicate: (received: Int, response: Response<T>) -> Boolean): List<T> {
+    var received = 0
+    val cache = LinkedList<Response<T>>()
+
+    recvFromOthersWhile { mail ->
+        val response = mail.objectAs<Response<T>>()
+        cache.add(response)
+        predicate(++received, response)
+    }
+
+    return mutableListOfNulls<T>(received).apply {
+        cache.forEach { this[it.index] = it.data }
+    } as List<T>
+}
