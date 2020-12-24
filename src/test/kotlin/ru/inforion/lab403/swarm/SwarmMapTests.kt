@@ -12,14 +12,6 @@ import kotlin.time.ExperimentalTime
 import kotlin.time.measureTimedValue
 
 
-internal fun String.sha256() = MessageDigest.getInstance("SHA-256").digest(convertToBytes()).hexlify()
-
-internal fun sha256Test(value: Int, count: Int): String {
-    var result = value.toString()
-    repeat(count) { result = result.sha256() }
-    return result
-}
-
 internal fun sha256_map_list(swarm: Swarm, size: Int, count: Int) = List(size) { it }.parallelize(swarm).map { sha256Test(it, count) }
 internal fun sha256_map2_list(swarm: Swarm, size: Int, count: Int) = List(size) { it }.parallelize(swarm).map2 { sha256Test(it, count) }
 internal fun sha256_map_seq(swarm: Swarm, size: Int, count: Int) = sequence(size) { it }.parallelize(swarm).map { sha256Test(it, count) }
@@ -70,8 +62,9 @@ internal abstract class SwarmMapTestsBase(private val threads: Int, private val 
 @ExperimentalTime internal class SwarmMapTestG03 : SwarmMapTestsBase(6, 5000, 256)
 @ExperimentalTime internal class SwarmMapTestG04 : SwarmMapTestsBase(6, 5000, 1024)
 @ExperimentalTime internal class SwarmMapTestG05 : SwarmMapTestsBase(6, 5000, 2048)
-@ExperimentalTime internal class SwarmMapTestG06 : SwarmMapTestsBase(6, 5000, 4096)
-@ExperimentalTime internal class SwarmMapTestG07 : SwarmMapTestsBase(6, 5000, 8192)
+
+@ExperimentalTime internal class SwarmMapTestG06 : SwarmMapTestsBase(6, 1000, 4096)
+@ExperimentalTime internal class SwarmMapTestG07 : SwarmMapTestsBase(6, 1000, 8192)
 
 @ExperimentalTime internal class SwarmMapTestG08 : SwarmMapTestsBase(2, 5000, 256)
 @ExperimentalTime internal class SwarmMapTestG09 : SwarmMapTestsBase(2, 5000, 1024)

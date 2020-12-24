@@ -83,33 +83,40 @@ internal inline fun <T, C : Collection<T>, R> IRealm.fold(
     return initial
 }
 
-//internal inline fun <T> receiveFiltered(tasks: List<IndexedCommonTask<T, *>>): List<T> {
-//    val result = fold(size, mutableListOfNulls<T?>(size)) { acc, response: Response<Boolean> ->
-//        if (response.data) acc[response.index] = tasks[response.index].value
-//    }
-//    val notNulls = ArrayList<T>(size / 2)
-//    result.forEach { if (it != null) notNulls.add(it) }
-//    return notNulls
-//}
+internal inline fun <T> IRealm.receiveFiltered(
+    size: Int,
+    tasks: List<IndexedCommonTask<T, *>>,
+    action: (index: Int) -> Unit): List<T>
+{
+    val result = fold(size, mutableListOfNulls<T?>(size)) { acc, response: Response<Boolean> ->
+        if (response.value) {
+            action(response.index)
+            acc[response.index] = tasks[response.index].value
+        }
+    }
+    val notNulls = ArrayList<T>(size / 2)
+    result.forEach { if (it != null) notNulls.add(it) }
+    return notNulls
+}
 
-internal inline fun <T> IRealm.receiveOrderedAll(size: Int, offset: Int, action: (response: Response<T>) -> Unit) =
+internal inline fun <T> IRealm.receiveOrderedAll(size: Int, offset: Int, action: (index: Int) -> Unit) =
     fold(size, mutableListOfNulls<T?>(size)) { acc, response: Response<T> ->
-        action(response)
-        acc[response.index + offset] = response.data
+        action(response.index)
+        acc[response.index + offset] = response.value
     } as List<T>
 
 
-internal inline fun <T> IRealm.receiveOrderedWhile(predicate: (received: Int, response: Response<T>) -> Boolean): List<T> {
+internal inline fun <T> IRealm.receiveOrderedWhile(predicate: (received: Int, index: Int) -> Boolean): List<T> {
     var received = 0
     val cache = LinkedList<Response<T>>()
 
     recvFromOthersWhile { mail ->
         val response = mail.objectAs<Response<T>>()
         cache.add(response)
-        predicate(++received, response)
+        predicate(++received, response.index)
     }
 
     return mutableListOfNulls<T>(received).apply {
-        cache.forEach { this[it.index] = it.data }
+        cache.forEach { this[it.index] = it.value }
     } as List<T>
 }
